@@ -661,7 +661,7 @@
                 appName = newName;
                 localStorage.setItem('appName', appName);
                 display.textContent = appName;
-                document.title = appName.replace(/[📋📝📊📅🗂️]/g, '').trim() + ' - จัดการงานอย่างมืออาชีพ';
+                document.title = appName.replace(/[📋📝📊📅🗂️]/g, '').trim() || 'Monthly Plan';
                 showToast('✅ เปลี่ยนชื่อแอพสำเร็จ!');
             }
             
@@ -710,8 +710,9 @@
 
         // App Name Functions
         function loadAppName() {
-            const appName = localStorage.getItem('appName') || 'โดม';
+            const appName = localStorage.getItem('appName') || 'Monthly Plan';
             document.getElementById('appNameDisplay').textContent = appName;
+            document.title = appName.replace(/[📋📝📊📅🗂️]/g, '').trim() || 'Monthly Plan';
             
             // Load branch font size
             const branchFontSize = localStorage.getItem('branchFontSize') || '1.0';
