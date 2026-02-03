@@ -359,11 +359,6 @@
                 sessionStorage.setItem('currentUser', JSON.stringify(user));
                 document.getElementById('loginOverlay').style.display = 'none';
                 await loadUserData();
-                await Promise.allSettled([
-                    saveDayOffsAndLeaves(),
-                    saveTodos(),
-                    saveBranchVisits()
-                ]);
                 initializeApp();
                 showToast(`ยินดีต้อนรับ ${user.username}!`);
             } else {
@@ -372,11 +367,6 @@
         }
 
         async function logout() {
-            await Promise.allSettled([
-                saveDayOffsAndLeaves(),
-                saveTodos(),
-                saveBranchVisits()
-            ]);
             sessionStorage.removeItem('currentUser');
             currentUser = null;
             location.reload();
@@ -988,6 +978,65 @@
             if (vacationEl) vacationEl.textContent = vacationCount;
             if (sickEl) sickEl.textContent = sickCount;
             if (personalEl) personalEl.textContent = personalCount;
+
+            const byUserEl = document.getElementById('leaveSummaryByUser');
+            if (byUserEl) {
+                const isAdmin = currentUser && currentUser.role === 'admin';
+                const isAllView = isAdmin && viewingUser === 'all';
+                if (!isAllView) {
+                    byUserEl.style.display = 'none';
+                    byUserEl.innerHTML = '';
+                } else {
+                    const monthDayOffEntries = dayOffs
+                        .filter(d => d && typeof d === 'object' && typeof d.owner === 'string')
+                        .map(d => ({ date: getDayOffDateValue(d), owner: d.owner }))
+                        .filter(d => d.date && d.date >= firstDay && d.date <= lastDay);
+
+                    const monthLeaveEntries = monthLeaves
+                        .filter(l => l && typeof l.owner === 'string');
+
+                    const countsByOwner = new Map();
+                    const ensure = (owner) => {
+                        if (!countsByOwner.has(owner)) {
+                            countsByOwner.set(owner, { dayoff: 0, holiday: 0, vacation: 0, sick: 0, personal: 0 });
+                        }
+                        return countsByOwner.get(owner);
+                    };
+
+                    monthDayOffEntries.forEach(d => {
+                        ensure(d.owner).dayoff += 1;
+                    });
+                    monthLeaveEntries.forEach(l => {
+                        const bucket = ensure(l.owner);
+                        if (bucket[l.type] !== undefined) bucket[l.type] += 1;
+                    });
+
+                    const userRows = users
+                        .filter(u => u && typeof u.username === 'string')
+                        .map(u => u.username)
+                        .filter(username => countsByOwner.has(username))
+                        .sort((a, b) => getUserDisplayName(a).localeCompare(getUserDisplayName(b), 'th'));
+
+                    if (userRows.length === 0) {
+                        byUserEl.style.display = 'none';
+                        byUserEl.innerHTML = '';
+                    } else {
+                        byUserEl.style.display = 'block';
+                        byUserEl.innerHTML = userRows.map(username => {
+                            const c = countsByOwner.get(username);
+                            const name = getUserDisplayName(username);
+                            const label = name && name !== username ? `${name} (${username})` : username;
+                            const parts = [];
+                            if (c.dayoff) parts.push(`🏖️ ${c.dayoff}`);
+                            if (c.holiday) parts.push(`🎉 ${c.holiday}`);
+                            if (c.vacation) parts.push(`🏝️ ${c.vacation}`);
+                            if (c.sick) parts.push(`🤒 ${c.sick}`);
+                            if (c.personal) parts.push(`📝 ${c.personal}`);
+                            return `<div class="summary-item" style="margin-top: 8px;"><div class="summary-item-label"><span>👤</span><span>${label}</span></div><div class="summary-item-value">${parts.join(' ') || '0'}</div></div>`;
+                        }).join('');
+                    }
+                }
+            }
         }
 
         // Branch Functions
