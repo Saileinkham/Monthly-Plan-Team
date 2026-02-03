@@ -52,8 +52,21 @@
 
         async function saveUsers() {
             localStorage.setItem('users', JSON.stringify(users));
-            if (window.FirestoreAdapter) {
-                await FirestoreAdapter.saveUsers(users);
+            if (window.FirestoreAdapter && window.db) {
+                try {
+                    const collectionName = FirestoreAdapter.collectionName || 'app_data';
+                    const ref = window.db.collection(collectionName).doc('users');
+                    await window.db.runTransaction(async tx => {
+                        const snap = await tx.get(ref);
+                        const remoteValue = snap.exists ? (snap.data() ? snap.data().value : null) : null;
+                        const remoteUsers = Array.isArray(remoteValue) ? remoteValue : [];
+                        const merged = normalizeUsers(ensureCoreUsers(mergeUsersByUsername(users, remoteUsers)));
+                        tx.set(ref, {
+                            value: merged,
+                            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                        }, { merge: true });
+                    });
+                } catch (e) {}
             }
         }
 
@@ -673,16 +686,34 @@
             const localUsers = users;
             if (window.FirestoreAdapter) {
                 try {
-                    const remoteUsers = await FirestoreAdapter.getUsers();
-                    if (Array.isArray(remoteUsers)) {
-                        users = mergeUsersByUsername(remoteUsers, localUsers);
-                    } else if (Array.isArray(localUsers)) {
-                        users = localUsers;
+                    const collectionName = FirestoreAdapter.collectionName || 'app_data';
+                    const ref = window.db.collection(collectionName).doc('users');
+                    const snap = await ref.get();
+                    const remoteValue = snap.exists ? (snap.data() ? snap.data().value : null) : null;
+                    const remoteUsers = Array.isArray(remoteValue) ? remoteValue : null;
+
+                    if (remoteUsers) {
+                        const merged = normalizeUsers(ensureCoreUsers(mergeUsersByUsername(remoteUsers, localUsers)));
+                        users = merged;
+
+                        const remoteUsernames = new Set(remoteUsers.map(u => (u && typeof u.username === 'string') ? u.username.trim() : '').filter(Boolean));
+                        const mergedUsernames = merged.map(u => u.username);
+                        const shouldWrite = mergedUsernames.some(name => !remoteUsernames.has(name));
+                        if (shouldWrite) {
+                            await ref.set({
+                                value: merged,
+                                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                            }, { merge: true });
+                        }
                     } else {
-                        users = [];
+                        users = normalizeUsers(ensureCoreUsers(localUsers));
+                        await ref.set({
+                            value: users,
+                            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                        }, { merge: true });
                     }
-                    users = normalizeUsers(ensureCoreUsers(users));
-                    await saveUsers();
+
+                    localStorage.setItem('users', JSON.stringify(users));
                 } catch (e) {
                     users = normalizeUsers(ensureCoreUsers(localUsers));
                     localStorage.setItem('users', JSON.stringify(users));
