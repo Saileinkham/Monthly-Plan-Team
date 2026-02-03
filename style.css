@@ -820,6 +820,7 @@
             align-items: center;
             gap: 4px;
             width: 100%;
+            order: 1;
             white-space: normal;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -829,6 +830,7 @@
             font-size: inherit;
             opacity: 0.9;
             width: 100%;
+            order: 2;
         }
 
         /* Edit Branch Visit Modal */
