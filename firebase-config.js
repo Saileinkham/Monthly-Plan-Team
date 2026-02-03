@@ -3,15 +3,19 @@
 
 const firebaseConfig = {
   apiKey: "AIzaSyB1yiKA9P251QmwodaF_D3JMtNBRcGjn8o",
-  authDomain: "monthly-plan-d0me.firebaseapp.com",
-  projectId: "monthly-plan-d0me",
-  appId: "1:1078322637255:web:c077478059089901d2c672",
-  measurementId: "G-96G8506X46"
+  authDomain: "todo-lits-team.firebaseapp.com",
+  projectId: "todo-lits-team",
+  storageBucket: "todo-lits-team.firebasestorage.app",
+  messagingSenderId: "194544443505",
+  appId: "1:194544443505:web:1b7f7c7f19d35462b9fbd0",
+  measurementId: "G-797T5GB43W"
 };
 
 // Initialize Firebase
 if (typeof firebase !== 'undefined') {
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps || firebase.apps.length === 0) {
+        firebase.initializeApp(firebaseConfig);
+    }
     window.db = firebase.firestore();
     try {
         if (firebaseConfig.measurementId && typeof firebase.analytics === 'function') {
