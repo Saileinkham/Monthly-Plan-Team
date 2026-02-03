@@ -382,7 +382,7 @@
                 if (window.FirestoreAdapter) {
                     try {
                         const val = await FirestoreAdapter.getItem(key);
-                        if (val) return val;
+                        if (val !== null && val !== undefined) return val;
                     } catch (e) {
                         console.error('Firestore error', e);
                     }
@@ -3443,7 +3443,7 @@
                         select.style.border = '1px solid var(--border)';
                         select.style.background = 'var(--bg-card)';
                         select.style.color = 'var(--text-primary)';
-                        select.onchange = (e) => updateUserStatusInAllView(u.username, dateStr, e.target.value);
+                        select.onchange = async (e) => updateUserStatusInAllView(u.username, dateStr, e.target.value);
                         
                         const options = [
                             { val: '', text: '✅ ทำงาน' },
@@ -3684,20 +3684,13 @@
             renderCalendar();
         }
 
-        function updateUserStatusInAllView(username, dateStr, status) {
-            // Remove existing dayOff for this user
-            const dayOffIndex = dayOffs.findIndex(d => getDayOffDateValue(d) === dateStr && (d.owner === username || (username === 'admin' && d.owner === 'legacy')));
-            if (dayOffIndex !== -1) {
-                dayOffs.splice(dayOffIndex, 1);
-            }
+        async function updateUserStatusInAllView(username, dateStr, status) {
+            const dayOffIndex = dayOffs.findIndex(d => getDayOffDateValue(d) === dateStr && d.owner === username);
+            if (dayOffIndex !== -1) dayOffs.splice(dayOffIndex, 1);
             
-            // Remove existing leave for this user
             const leaveIndex = leaveDays.findIndex(l => l.date === dateStr && l.owner === username);
-            if (leaveIndex !== -1) {
-                leaveDays.splice(leaveIndex, 1);
-            }
+            if (leaveIndex !== -1) leaveDays.splice(leaveIndex, 1);
             
-            // Add new status
             if (status === 'dayoff') {
                 dayOffs.push({ date: dateStr, owner: username });
             } else if (status !== '') {
@@ -3709,16 +3702,19 @@
                 });
             }
             
-            // SAVE IMMEDIATELY to the specific user's storage
+            const userDayOffs = dayOffs.filter(d => d.owner === username).map(d => getDayOffDateValue(d));
+            const userLeaves = leaveDays
+                .filter(l => l.owner === username)
+                .map(l => ({ date: l.date, type: l.type, createdAt: l.createdAt }));
+            
+            const prefix = username + '_';
             try {
-                // Filter data for this specific user to save
-                const userDayOffs = dayOffs.filter(d => (d.owner === username) || (username === 'admin' && d.owner === 'legacy')).map(d => getDayOffDateValue(d));
-                const userLeaves = leaveDays.filter(l => l.owner === username);
-                
-                const prefix = username === 'admin' ? 'admin_' : username + '_';
                 localStorage.setItem(prefix + 'dayOffs', JSON.stringify(userDayOffs));
                 localStorage.setItem(prefix + 'leaveDays', JSON.stringify(userLeaves));
-                
+                if (window.FirestoreAdapter) {
+                    await FirestoreAdapter.setItem(prefix + 'dayOffs', userDayOffs);
+                    await FirestoreAdapter.setItem(prefix + 'leaveDays', userLeaves);
+                }
                 showToast(`✅ อัปเดตสถานะของ ${getUserDisplayName(username)} แล้ว`);
             } catch (e) {
                 showToast('บันทึกไม่สำเร็จ', 'error');
