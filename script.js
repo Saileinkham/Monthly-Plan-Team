@@ -348,7 +348,7 @@
             }
         }
 
-        function handleLogin() {
+        async function handleLogin() {
             const username = document.getElementById('loginUsername').value.trim();
             const password = document.getElementById('loginPassword').value.trim();
 
@@ -358,9 +358,12 @@
                 currentUser = user;
                 sessionStorage.setItem('currentUser', JSON.stringify(user));
                 document.getElementById('loginOverlay').style.display = 'none';
-                loadUserData();
-                // Ensure any migrated data is saved immediately
-                saveDayOffsAndLeaves();
+                await loadUserData();
+                await Promise.allSettled([
+                    saveDayOffsAndLeaves(),
+                    saveTodos(),
+                    saveBranchVisits()
+                ]);
                 initializeApp();
                 showToast(`ยินดีต้อนรับ ${user.username}!`);
             } else {
@@ -368,8 +371,12 @@
             }
         }
 
-        function logout() {
-            saveDayOffsAndLeaves();
+        async function logout() {
+            await Promise.allSettled([
+                saveDayOffsAndLeaves(),
+                saveTodos(),
+                saveBranchVisits()
+            ]);
             sessionStorage.removeItem('currentUser');
             currentUser = null;
             location.reload();
@@ -534,9 +541,9 @@
         }
         */
 
-        function switchAdminView(user) {
+        async function switchAdminView(user) {
             viewingUser = user || null;
-            loadUserData();
+            await loadUserData();
             refreshAllViews();
             if (!user) {
                 showToast('Switched to personal view');
