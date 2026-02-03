@@ -5,8 +5,6 @@ const firebaseConfig = {
   apiKey: "AIzaSyB1yiKA9P251QmwodaF_D3JMtNBRcGjn8o",
   authDomain: "monthly-plan-d0me.firebaseapp.com",
   projectId: "monthly-plan-d0me",
-  storageBucket: "monthly-plan-d0me.appspot.com", // Inferred or standard
-  messagingSenderId: "1078322637255", // Inferred or standard
   appId: "1:1078322637255:web:c077478059089901d2c672",
   measurementId: "G-96G8506X46"
 };
@@ -15,7 +13,11 @@ const firebaseConfig = {
 if (typeof firebase !== 'undefined') {
     firebase.initializeApp(firebaseConfig);
     window.db = firebase.firestore();
-    window.analytics = firebase.analytics();
+    try {
+        if (firebaseConfig.measurementId && typeof firebase.analytics === 'function') {
+            window.analytics = firebase.analytics();
+        }
+    } catch (e) {}
     console.log("Firebase initialized");
 } else {
     console.error("Firebase SDK not loaded!");
