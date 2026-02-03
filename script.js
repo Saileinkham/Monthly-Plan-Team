@@ -7,20 +7,48 @@
             { username: 'user3', password: '1234', role: 'user', displayName: 'user3' }
         ];
 
-        // Force update Admin Casnova281
-        const adminIndex = users.findIndex(u => u.username === 'Casnova281');
-        if (adminIndex !== -1) {
-             users[adminIndex].password = 'd0930152744';
-             users[adminIndex].role = 'admin';
-        } else {
-             users.unshift({ username: 'Casnova281', password: 'd0930152744', role: 'admin' });
+        function ensureCoreUsers(list) {
+            const arr = Array.isArray(list) ? [...list] : [];
+            const cleaned = arr.filter(u => u && typeof u.username === 'string' && u.username.trim() && u.username !== 'admin');
+            const adminIndex = cleaned.findIndex(u => u.username === 'Casnova281');
+            if (adminIndex !== -1) {
+                const existing = cleaned[adminIndex];
+                cleaned[adminIndex] = {
+                    ...existing,
+                    username: 'Casnova281',
+                    password: 'd0930152744',
+                    role: 'admin',
+                    displayName: existing.displayName || 'Casnova281'
+                };
+            } else {
+                cleaned.unshift({ username: 'Casnova281', password: 'd0930152744', role: 'admin', displayName: 'Casnova281' });
+            }
+            return cleaned;
         }
-        
-        // Remove default 'admin' if it exists (cleanup)
-        users = users.filter(u => u.username !== 'admin');
-        
-        // Save updated users immediately
-        localStorage.setItem('users', JSON.stringify(users));
+
+        function mergeUsersByUsername(primary, secondary) {
+            const map = new Map();
+            (Array.isArray(primary) ? primary : []).forEach(u => {
+                if (!u || typeof u.username !== 'string' || !u.username.trim()) return;
+                map.set(u.username, { ...u, username: u.username.trim() });
+            });
+            (Array.isArray(secondary) ? secondary : []).forEach(u => {
+                if (!u || typeof u.username !== 'string' || !u.username.trim()) return;
+                const username = u.username.trim();
+                if (!map.has(username)) {
+                    map.set(username, { ...u, username });
+                    return;
+                }
+                const existing = map.get(username);
+                map.set(username, {
+                    ...u,
+                    ...existing,
+                    username,
+                    displayName: existing.displayName || u.displayName || username
+                });
+            });
+            return Array.from(map.values());
+        }
 
         async function saveUsers() {
             localStorage.setItem('users', JSON.stringify(users));
@@ -29,16 +57,19 @@
             }
         }
 
-        function normalizeUsers() {
-            users = users.map(u => {
-                const username = u.username || '';
-                const displayName = typeof u.displayName === 'string' ? u.displayName : '';
-                return {
-                    ...u,
-                    displayName: displayName || username
-                };
-            });
-            saveUsers();
+        function normalizeUsers(list) {
+            const arr = Array.isArray(list) ? list : [];
+            return arr
+                .map(u => {
+                    const username = (u && typeof u.username === 'string') ? u.username.trim() : '';
+                    const displayName = (u && typeof u.displayName === 'string') ? u.displayName.trim() : '';
+                    return {
+                        ...u,
+                        username,
+                        displayName: displayName || username
+                    };
+                })
+                .filter(u => u && u.username);
         }
 
         function getUserDisplayName(username) {
@@ -46,7 +77,7 @@
             return (u && typeof u.displayName === 'string' && u.displayName.trim()) ? u.displayName.trim() : username;
         }
 
-        normalizeUsers();
+        users = normalizeUsers(ensureCoreUsers(users));
 
         // State
         let todos = [];
@@ -135,9 +166,7 @@
             }
         }
 
-        // Initialize
-        function init() {
-            // Check login
+        function initLegacy() {
             const storedUser = sessionStorage.getItem('currentUser');
             if (storedUser) {
                 currentUser = JSON.parse(storedUser);
@@ -145,7 +174,7 @@
                 loadUserData();
             } else {
                 document.getElementById('loginOverlay').style.display = 'flex';
-                return; // Stop initialization until login
+                return;
             }
 
             initializeApp();
@@ -640,22 +669,27 @@
             display.style.display = 'inline-block';
         }
 
-        // Initialize
         async function init() {
-            // Load users from Firebase
+            const localUsers = users;
             if (window.FirestoreAdapter) {
                 try {
                     const remoteUsers = await FirestoreAdapter.getUsers();
-                    if (remoteUsers) {
-                        users = remoteUsers;
-                        localStorage.setItem('users', JSON.stringify(users));
+                    if (Array.isArray(remoteUsers)) {
+                        users = mergeUsersByUsername(remoteUsers, localUsers);
+                    } else if (Array.isArray(localUsers)) {
+                        users = localUsers;
                     } else {
-                        // Migrate initial local users to Firebase if empty
-                        await FirestoreAdapter.saveUsers(users);
+                        users = [];
                     }
+                    users = normalizeUsers(ensureCoreUsers(users));
+                    await saveUsers();
                 } catch (e) {
-                    console.error('Error loading users from Firebase:', e);
+                    users = normalizeUsers(ensureCoreUsers(localUsers));
+                    localStorage.setItem('users', JSON.stringify(users));
                 }
+            } else {
+                users = normalizeUsers(ensureCoreUsers(localUsers));
+                localStorage.setItem('users', JSON.stringify(users));
             }
 
             const storedUser = sessionStorage.getItem('currentUser');
