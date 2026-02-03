@@ -292,13 +292,13 @@
         }
 
         .stat-value {
-            font-size: 2rem;
+            font-size: 1rem;
             font-weight: 700;
-            font-family: 'Kanit', sans-serif;
+            font-family: inherit;
         }
 
         .stat-label {
-            font-size: 0.875rem;
+            font-size: 1rem;
             opacity: 0.9;
             margin-top: 5px;
         }
@@ -349,7 +349,7 @@
         }
 
         .summary-card-total {
-            font-size: 2rem;
+            font-size: 1rem;
             font-weight: 700;
             color: var(--primary);
         }
@@ -379,12 +379,13 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 0.9rem;
+            font-size: 1rem;
         }
 
         .summary-item-value {
             font-weight: 700;
-            font-size: 1.1rem;
+            font-size: 1rem;
+            font-family: inherit;
         }
 
         .summary-item-bar {
@@ -927,9 +928,9 @@
         }
 
         .leave-summary-count {
-            font-size: 1.8rem;
+            font-size: 1rem;
             font-weight: 700;
-            font-family: 'Kanit', sans-serif;
+            font-family: inherit;
         }
 
         .leave-badge {
@@ -1076,9 +1077,9 @@
         }
 
         .progress-percentage {
-            font-size: 2rem;
+            font-size: 1rem;
             font-weight: 700;
-            font-family: 'Kanit', sans-serif;
+            font-family: inherit;
         }
 
         .progress-bar-bg {

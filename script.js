@@ -6,11 +6,6 @@
             { username: 'user2', password: '1234', role: 'user', displayName: 'user2' },
             { username: 'user3', password: '1234', role: 'user', displayName: 'user3' }
         ];
-        const defaultUsersSeed = [
-            { username: 'user1', password: '1234', role: 'user', displayName: 'user1' },
-            { username: 'user2', password: '1234', role: 'user', displayName: 'user2' },
-            { username: 'user3', password: '1234', role: 'user', displayName: 'user3' }
-        ];
 
         function ensureCoreUsers(list) {
             const arr = Array.isArray(list) ? [...list] : [];
@@ -62,17 +57,8 @@
                     const collectionName = FirestoreAdapter.collectionName || 'app_data';
                     const ref = window.db.collection(collectionName).doc('users');
                     await window.db.runTransaction(async tx => {
-                        const snap = await tx.get(ref);
-                        const remoteValue = snap.exists ? (snap.data() ? snap.data().value : null) : null;
-                        const remoteUsers = Array.isArray(remoteValue) ? remoteValue : [];
-                        const merged = normalizeUsers(
-                            ensureCoreUsers(
-                                mergeUsersByUsername(
-                                    mergeUsersByUsername(users, remoteUsers),
-                                    defaultUsersSeed
-                                )
-                            )
-                        );
+                        await tx.get(ref);
+                        const merged = normalizeUsers(ensureCoreUsers(users));
                         tx.set(ref, {
                             value: merged,
                             lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
@@ -692,7 +678,7 @@
         }
 
         async function init() {
-            const localUsers = normalizeUsers(ensureCoreUsers(mergeUsersByUsername(users, defaultUsersSeed)));
+            const localUsers = normalizeUsers(ensureCoreUsers(users));
             if (window.FirestoreAdapter) {
                 try {
                     const collectionName = FirestoreAdapter.collectionName || 'app_data';
@@ -702,19 +688,7 @@
                     const remoteUsers = Array.isArray(remoteValue) ? remoteValue : null;
 
                     if (remoteUsers) {
-                        const remoteSeeded = normalizeUsers(ensureCoreUsers(mergeUsersByUsername(remoteUsers, defaultUsersSeed)));
-                        const merged = normalizeUsers(ensureCoreUsers(mergeUsersByUsername(remoteSeeded, localUsers)));
-                        users = merged;
-
-                        const remoteUsernames = new Set(remoteUsers.map(u => (u && typeof u.username === 'string') ? u.username.trim() : '').filter(Boolean));
-                        const mergedUsernames = merged.map(u => u.username);
-                        const shouldWrite = mergedUsernames.some(name => !remoteUsernames.has(name));
-                        if (shouldWrite) {
-                            await ref.set({
-                                value: merged,
-                                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                            }, { merge: true });
-                        }
+                        users = normalizeUsers(ensureCoreUsers(remoteUsers));
                     } else {
                         users = normalizeUsers(ensureCoreUsers(localUsers));
                         await ref.set({
