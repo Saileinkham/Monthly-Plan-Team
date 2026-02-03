@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ตารางงานคุณชายโดม - จัดการงานอย่างมือโปร</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <div class="sidebar-nav" id="sidebarNav">
+        <div class="sidebar-header">
+            <div class="sidebar-logo" style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span class="sidebar-logo-icon">📋</span>
+                    <span id="appNameDisplay">โดม</span>
+                </div>
+                <button id="editAppNameBtn" onclick="editAppName()" style="background: rgba(255,255,255,0.1); border: none; color: var(--text-primary); padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s;" title="แก้ไขชื่อแอพ">✏️</button>
+            </div>
+        </div>
+
+        <div class="sidebar-menu">
+            <!-- Dashboard -->
+            <div class="sidebar-item active" onclick="navigateTo('dashboard')" data-section="dashboard">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">🏠</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">หน้าหลัก</span>
+                        <span class="sidebar-item-desc">ภาพรวมทั้งหมด</span>
+                    </div>
+                </div>
+                <span class="sidebar-item-badge" id="sidebarTotalTodos">0</span>
+            </div>
+
+            <!-- Today -->
+            <div class="sidebar-item" onclick="navigateTo('today')" data-section="today">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">📅</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">วันนี้</span>
+                        <span class="sidebar-item-desc">งานที่ต้องทำวันนี้</span>
+                    </div>
+                </div>
+                <span class="sidebar-item-badge warning" id="sidebarTodayTodos">0</span>
+            </div>
+
+            <!-- Upcoming -->
+            <div class="sidebar-item" onclick="navigateTo('upcoming')" data-section="upcoming">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">📆</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">5 วันข้างหน้า</span>
+                        <span class="sidebar-item-desc">วางแผนล่วงหน้า</span>
+                    </div>
+                </div>
+                <span class="sidebar-item-badge" id="sidebarUpcomingTodos">0</span>
+            </div>
+
+            <!-- Overdue -->
+            <div class="sidebar-item" onclick="navigateTo('overdue')" data-section="overdue">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">⚠️</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">เลยกำหนด</span>
+                        <span class="sidebar-item-desc">ต้องเร่งทำ</span>
+                    </div>
+                </div>
+                <span class="sidebar-item-badge danger" id="sidebarOverdueTodos">0</span>
+            </div>
+
+            <div class="sidebar-divider"></div>
+
+            <!-- Calendar -->
+            <div class="sidebar-item" onclick="navigateTo('calendar')" data-section="calendar">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">📊</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">ปฏิทิน</span>
+                        <span class="sidebar-item-desc">มุมมองรายเดือน</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recurring -->
+            <div class="sidebar-item" onclick="navigateTo('recurring')" data-section="recurring">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">🔄</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">งานทำซ้ำ</span>
+                        <span class="sidebar-item-desc">งานประจำ</span>
+                    </div>
+                </div>
+                <span class="sidebar-item-badge" id="sidebarRecurringTodos">0</span>
+            </div>
+
+            <div class="sidebar-section-title">หมวดหมู่</div>
+
+            <!-- Categories -->
+            <div class="sidebar-item" onclick="navigateTo('work')" data-section="work">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">💼</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">งาน</span>
+                    </div>
+                </div>
+                <span class="sidebar-item-badge" id="sidebarWorkTodos">0</span>
+            </div>
+
+            <div class="sidebar-item" onclick="navigateTo('personal')" data-section="personal">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">👤</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">ส่วนตัว</span>
+                    </div>
+                </div>
+                <span class="sidebar-item-badge" id="sidebarPersonalTodos">0</span>
+            </div>
+
+            <div class="sidebar-item" onclick="navigateTo('shopping')" data-section="shopping">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">🛒</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">ช็อปปิ้ง</span>
+                    </div>
+                </div>
+                <span class="sidebar-item-badge" id="sidebarShoppingTodos">0</span>
+            </div>
+
+            <div class="sidebar-item" onclick="navigateTo('health')" data-section="health">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">💪</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">สุขภาพ</span>
+                    </div>
+                </div>
+                <span class="sidebar-item-badge" id="sidebarHealthTodos">0</span>
+            </div>
+
+            <div class="sidebar-item" onclick="navigateTo('study')" data-section="study">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">📚</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">เรียน</span>
+                    </div>
+                </div>
+                <span class="sidebar-item-badge" id="sidebarStudyTodos">0</span>
+            </div>
+
+            <!-- Custom Categories (Dynamic) -->
+            <div id="customCategoriesSidebar"></div>
+
+            <div class="sidebar-divider"></div>
+
+            <!-- Leave Report -->
+            <div class="sidebar-item" onclick="navigateTo('leave-report')" data-section="leave-report">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">🏖️</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">รายงานวันลา</span>
+                        <span class="sidebar-item-desc">ดูสรุปวันลาทั้งปี</span>
+                    </div>
+                </div>
+                <span class="sidebar-badge" id="leaveYearlyCount">0</span>
+            </div>
+
+            <div class="sidebar-divider"></div>
+
+            <!-- Completed -->
+            <div class="sidebar-item" onclick="navigateTo('completed')" data-section="completed">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">✅</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">เสร็จแล้ว</span>
+                        <span class="sidebar-item-desc">งานที่ทำเสร็จ</span>
+                    </div>
+                </div>
+                <span class="sidebar-item-badge success" id="sidebarCompletedTodos">0</span>
+            </div>
+
+            <!-- Spacer to push settings to bottom -->
+            <div style="flex: 1;"></div>
+
+            <div class="sidebar-divider"></div>
+
+            <!-- Management Tools in Sidebar -->
+            <div class="sidebar-item" onclick="toggleExportMenu()" style="position: relative;">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">📥</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">นำเข้า/ส่งออก</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-item" onclick="clearCompleted()">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">🗑️</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">ล้างงานเสร็จ</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-divider"></div>
+
+            <div class="sidebar-item" onclick="logout()" id="sidebarLogoutItem">
+                <div class="sidebar-item-content">
+                    <span class="sidebar-item-icon">🚪</span>
+                    <div class="sidebar-item-text">
+                        <span class="sidebar-item-title">ออกจากระบบ</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Settings moved to Top Bar -->
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-main); z-index: 10000; display: flex; align-items: center; justify-content: center;">
+        <div style="background: var(--bg-card); padding: 40px; border-radius: 20px; box-shadow: var(--shadow-lg); width: 90%; max-width: 400px; text-align: center; border: 1px solid var(--border);">
+            <div style="font-size: 3rem; margin-bottom: 20px;">🔒</div>
+            <h2 style="margin-bottom: 10px; color: var(--text-primary);">เข้าสู่ระบบ</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 30px;">Monthly Plan Management System</p>
+            
+            <div style="margin-bottom: 20px; text-align: left;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 500;">ชื่อผู้ใช้</label>
+                <input type="text" id="loginUsername" placeholder="username" style="width: 100%; padding: 12px; border-radius: 10px; border: 2px solid var(--border); background: var(--bg-main); color: var(--text-primary); font-size: 1rem;">
+            </div>
+            
+            <div style="margin-bottom: 30px; text-align: left;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 500;">รหัสผ่าน</label>
+                <input type="password" id="loginPassword" placeholder="password" style="width: 100%; padding: 12px; border-radius: 10px; border: 2px solid var(--border); background: var(--bg-main); color: var(--text-primary); font-size: 1rem;">
+            </div>
+            
+            <button onclick="handleLogin()" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1.1rem; justify-content: center; margin-bottom: 15px;">
+                เข้าสู่ระบบ
+            </button>
+            
+            <div style="text-align: center; font-size: 0.9rem; color: var(--text-secondary);">
+                Created by Chai Dome
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar Toggle Button -->
+    <div class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+        ☰
+    </div>
+
+    <!-- Main Menu Button (Gradient) -->
+    <div id="mainMenuButton" onclick="openSettings()" style="position: fixed; top: 20px; left: 20px; width: 50px; height: 50px; background: linear-gradient(135deg, #a855f7, #ec4899); border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 2000; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+        <span style="color: white; font-size: 1.5rem;">☰</span>
+    </div>
+
+    <button id="topLogoutButton" class="top-logout-button" onclick="logout()" title="ออกจากระบบ">
+        <span class="top-logout-icon">🚪</span>
+    </button>
+
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <!-- Main Wrapper -->
+    <div class="main-wrapper" id="mainWrapper">
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-content">
+                <!-- Logo and Title Section -->
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 15px; margin-bottom: 20px;">
+                    <!-- Logo Upload (Hidden) -->
+                    <!--
+                    <div style="position: relative; cursor: pointer;" onclick="document.getElementById('logoUpload').click()">
+                        <img id="appLogo" src="" alt="" style="max-width: 100px; max-height: 100px; border-radius: 50%; display: none; border: 4px solid var(--primary); box-shadow: var(--shadow-lg); transition: all 0.3s ease; object-fit: cover;">
+                        <div id="logoPlaceholder" style="width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; border: 4px solid var(--primary); box-shadow: var(--shadow-lg); cursor: pointer; transition: all 0.3s ease;">
+                            📋
+                        </div>
+                        <div style="position: absolute; bottom: 0; right: 0; background: var(--primary); color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); font-size: 1rem;">
+                            📷
+                        </div>
+                        <input type="file" id="logoUpload" accept="image/*" style="display: none;" onchange="handleLogoUpload(event)">
+                    </div>
+                    -->
+                    
+                    <!-- Editable App Name & Header Image (Hidden) -->
+                    <!--
+                    <div style="text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                        <h1 id="appNameDisplay" style="cursor: pointer; display: inline-block; padding: 8px 16px; border-radius: 8px; transition: all 0.3s ease;" onclick="editAppName()" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background='transparent'">
+                            📋 ตารางงานคุณชายโดม
+                        </h1>
+                        <input type="text" id="appNameInput" style="display: none; font-size: 2.5rem; font-weight: 700; font-family: 'Kanit', sans-serif; text-align: center; border: 2px solid var(--primary); border-radius: 12px; padding: 10px; width: 90%; max-width: 500px; background: var(--bg-card);" onblur="saveAppName()" onkeypress="if(event.key==='Enter') saveAppName()">
+                        
+                        <div style="position: relative; width: 100%; max-width: 600px; margin: 0 auto;">
+                            <img id="headerImage" src="" alt="" style="width: 100%; height: auto; border-radius: 12px; display: none; box-shadow: var(--shadow); object-fit: cover;">
+                            <div class="header-image-placeholder" id="headerImagePlaceholder" onclick="document.getElementById('headerImageUpload').click()" style="width: 100%; height: 150px; border-radius: 12px; background: var(--bg-card); border: 2px dashed var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s;">
+                                <span style="font-size: 2rem;">🖼️</span>
+                                <span style="margin-top: 8px; color: var(--text-secondary);">คลิกเพื่อเพิ่มรูปภาพปก</span>
+                            </div>
+                            <button onclick="document.getElementById('headerImageUpload').click()" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: white; border: none; padding: 8px; border-radius: 50%; cursor: pointer; backdrop-filter: blur(4px);">
+                                📷
+                            </button>
+                            <input type="file" id="headerImageUpload" accept="image/*" style="display: none;" onchange="handleHeaderImageUpload(event)">
+                        </div>
+
+                        <p>จัดการงานของคุณอย่างมืออาชีพ</p>
+                    </div>
+                    -->
+                    
+                    <!-- Simplified Title -->
+                    <h1 style="text-align: center;">Monthly Plan</h1>
+                    <div id="adminControlsDisplay" style="margin-top: 10px;"></div>
+                </div>
+                
+                <div class="header-stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalTodos">0</div>
+                        <div class="stat-label">งานทั้งหมด</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="completedTodos">0</div>
+                        <div class="stat-label">เสร็จแล้ว</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="pendingTodos">0</div>
+                        <div class="stat-label">ยังไม่เสร็จ</div>
+                    </div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div class="progress-container">
+                    <div class="progress-label">
+                        <span class="progress-text">🎯 ความคืบหน้า</span>
+                        <span class="progress-percentage" id="progressPercentage">0%</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="progressBarFill" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-details">
+                        <div class="progress-detail-item">
+                            <span>✅</span>
+                            <span id="completedCount">0</span>
+                            <span>/</span>
+                            <span id="totalCount">0</span>
+                            <span>งาน</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Summary -->
+        <div class="dashboard-summary" id="dashboardSummary">
+            <!-- Month Summary -->
+            <div class="summary-card">
+                <div class="summary-card-header">
+                    <div class="summary-card-title">
+                        <span class="summary-card-icon">📅</span>
+                        <span>งานประจำเดือน</span>
+                    </div>
+                    <div class="summary-card-total" id="monthTotalTasks">0</div>
+                </div>
+                <div class="summary-card-body">
+                    <div class="summary-item">
+                        <div class="summary-item-label">
+                            <span>✅</span>
+                            <span>เสร็จแล้ว</span>
+                        </div>
+                        <div class="summary-item-value" style="color: var(--success);" id="monthCompletedTasks">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-item-label">
+                            <span>⏳</span>
+                            <span>กำลังทำ</span>
+                        </div>
+                        <div class="summary-item-value" style="color: var(--warning);" id="monthPendingTasks">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-item-label">
+                            <span>⚠️</span>
+                            <span>เลยกำหนด</span>
+                        </div>
+                        <div class="summary-item-value" style="color: var(--danger);" id="monthOverdueTasks">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Work Time Summary -->
+            <div class="summary-card" id="workTimeSummaryCard">
+                <div class="summary-card-header">
+                    <div class="summary-card-title">
+                        <span class="summary-card-icon">🕘</span>
+                        <span id="branchSummaryTitle">สรุปจำนวนวันเข้างาน</span>
+                    </div>
+                </div>
+                <div class="summary-card-body" id="branchSummary" style="font-size: 1rem;">
+                    <!-- Will be populated by JS -->
+                </div>
+            </div>
+
+            <!-- Leave Summary -->
+            <div class="summary-card">
+                <div class="summary-card-header">
+                    <div class="summary-card-title">
+                        <span class="summary-card-icon">🏖️</span>
+                        <span>วันลาและหยุด</span>
+                    </div>
+                </div>
+                <div class="summary-card-body">
+                    <div class="summary-item">
+                        <div class="summary-item-label">
+                            <span>🏖️</span>
+                            <span>Day Off</span>
+                        </div>
+                        <div class="summary-item-value" id="summaryDayOff">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-item-label">
+                            <span>🎉</span>
+                            <span>ลานักขัตฤกษ์</span>
+                        </div>
+                        <div class="summary-item-value" id="summaryHoliday">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-item-label">
+                            <span>🏝️</span>
+                            <span>ลาพักร้อน</span>
+                        </div>
+                        <div class="summary-item-value" id="summaryVacation">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-item-label">
+                            <span>🤒</span>
+                            <span>ลาป่วย</span>
+                        </div>
+                        <div class="summary-item-value" id="summarySick">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-item-label">
+                            <span>📝</span>
+                            <span>ลากิจ</span>
+                        </div>
+                        <div class="summary-item-value" id="summaryPersonal">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <div class="controls-top">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="ค้นหางาน...">
+                </div>
+                <div class="view-toggle">
+                    <button class="view-btn active" onclick="switchView('list')">📋 รายการ</button>
+                    <button class="view-btn" onclick="switchView('calendar')">📅 ปฏิทิน</button>
+                </div>
+                <div class="notification-bell" onclick="toggleNotifications()" style="position: relative;">
+                    <button class="btn btn-secondary" style="padding: 12px 16px;">
+                        🔔 <span id="notificationCount"></span>
+                    </button>
+                    <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+                </div>
+                <!-- Settings moved to Main Menu Button -->
+                <!-- Export Menu moved to Sidebar -->
+                <!-- Clear Completed moved to Sidebar -->
+            </div>
+            <input type="file" id="importFile" class="file-input-hidden" accept=".xlsx,.xls,.csv" onchange="importFile(event)">
+            <div class="filters">
+                <button class="filter-btn active" data-filter="all" onclick="filterTodos('all')">ทั้งหมด</button>
+                <button class="filter-btn" data-filter="active" onclick="filterTodos('active')">ยังไม่เสร็จ</button>
+                <button class="filter-btn" data-filter="completed" onclick="filterTodos('completed')">เสร็จแล้ว</button>
+                <button class="filter-btn" data-filter="high" onclick="filterTodos('high')">🔴 สำคัญมาก</button>
+                <button class="filter-btn" data-filter="medium" onclick="filterTodos('medium')">🟡 สำคัญปานกลาง</button>
+                <button class="filter-btn" data-filter="low" onclick="filterTodos('low')">🟢 สำคัญน้อย</button>
+                <select id="branchFilter" onchange="filterTodos('branch:' + this.value)" style="padding: 8px 12px; border-radius: 20px; border: 2px solid var(--border); font-size: 0.9rem; background: var(--bg-main); color: var(--text-primary); cursor: pointer; transition: all 0.3s;">
+                    <option value="">🏢 กรองตามสาขา</option>
+                    <!-- Populated by JS -->
+                </select>
+            </div>
+        </div>
+
+        <!-- Search & Quick Actions Bar -->
+        <div style="background: var(--bg-card); padding: 20px; border-radius: 16px; margin-bottom: 20px; box-shadow: var(--shadow);">
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                <!-- Search Box -->
+                <div style="flex: 1; min-width: 250px; position: relative;">
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        placeholder="🔍 ค้นหางาน..."
+                        onkeyup="searchTodos()"
+                        style="width: 100%; padding: 12px 40px 12px 16px; border: 2px solid var(--border); border-radius: 12px; font-size: 1rem; transition: all 0.3s;"
+                    >
+                    <button 
+                        onclick="clearSearch()" 
+                        id="clearSearchBtn"
+                        style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px 8px; display: none;"
+                        title="ล้างการค้นหา"
+                    >✕</button>
+                </div>
+                
+                <!-- Quick Actions -->
+                <button onclick="exportToCSV()" class="btn" style="background: linear-gradient(135deg, #10b981, #059669); white-space: nowrap; padding: 12px 20px;">
+                    📤 Export CSV
+                </button>
+                <button onclick="showStatsModal()" class="btn" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); white-space: nowrap; padding: 12px 20px;">
+                    📊 สถิติ
+                </button>
+                <button onclick="toggleAllCompleted()" class="btn" style="background: linear-gradient(135deg, #f59e0b, #d97706); white-space: nowrap; padding: 12px 20px;">
+                    ✅ เลือกทั้งหมด
+                </button>
+            </div>
+        </div>
+
+        <!-- Add Todo Form -->
+        <div class="add-todo-form">
+            <!-- Branch Visit Entry (Now at top - Primary function) -->
+            <div class="branch-visit-section" id="branchVisitSection" style="margin-top: 0; margin-bottom: 20px;">
+                <div class="branch-visit-title">
+                    🕘 บันทึกเวลางาน
+                    <span style="font-size: 0.75rem; font-weight: 400; color: var(--text-secondary);">(ระบุวันและเวลาเข้า-ออกงาน)</span>
+                </div>
+                <div class="branch-visit-form">
+                    <div id="branchVisitBranchGroup" style="display: none;">
+                        <label style="font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; display: block;">สาขา</label>
+                        <select id="branchVisitBranch" style="width: 100%; padding: 10px; border: 2px solid var(--border); border-radius: 10px; background: var(--bg-main); color: var(--text-primary);">
+                            <option value="">-- เลือกสาขา --</option>
+                        </select>
+                    </div>
+                    <div id="branchVisitUserActionGroup" style="display: none;">
+                        <label style="font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; display: block;">ประเภท</label>
+                        <select id="branchVisitUserAction" onchange="toggleBranchVisitTimeInputs()" style="width: 100%; padding: 10px; border: 2px solid var(--border); border-radius: 10px; background: var(--bg-main); color: var(--text-primary);">
+                            <option value="work">✅ เข้างาน (ระบุเวลา)</option>
+                            <option value="dayoff">🏖️ Day Off</option>
+                            <option value="holiday">🎉 ลานักขัตฤกษ์</option>
+                            <option value="vacation">🏝️ ลาพักร้อน</option>
+                            <option value="sick">🤒 ลาป่วย</option>
+                            <option value="personal">📝 ลากิจ</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; display: block;">วันที่</label>
+                        <input type="date" id="branchVisitDate" style="width: 100%; padding: 10px; border: 2px solid var(--border); border-radius: 10px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; display: block;">เวลาเข้า</label>
+                        <input type="time" id="branchVisitTime" style="width: 100%; padding: 10px; border: 2px solid var(--border); border-radius: 10px;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; display: block;">เวลาออก</label>
+                        <input type="time" id="branchVisitTimeOut" style="width: 100%; padding: 10px; border: 2px solid var(--border); border-radius: 10px;">
+                    </div>
+                    <button class="btn btn-primary" onclick="addBranchVisit()" style="white-space: nowrap;">
+                        ➕ บันทึก
+                    </button>
+                </div>
+                <div id="userBranchVisitQuickActions" style="display: none; margin-top: 12px; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-primary" onclick="quickCheckIn()" style="background: linear-gradient(135deg, #10b981, #059669);">
+                        ✅ เข้างานตอนนี้
+                    </button>
+                    <button class="btn btn-secondary" onclick="quickCheckOut()" style="border-color: rgba(239, 68, 68, 0.35); color: #ef4444;">
+                        🚪 ออกงานตอนนี้
+                    </button>
+                </div>
+            </div>
+
+            <!-- Add Task Buttons -->
+            <div id="todoInputSection" style="display: flex; justify-content: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="toggleBulkAdd()" style="font-size: 1.1rem; padding: 14px 30px;">
+                    📝 เพิ่มงาน (Bulk Add)
+                </button>
+                <button class="btn btn-primary" onclick="openAddTodoModal()" style="font-size: 1.1rem; padding: 14px 30px; background: linear-gradient(135deg, #10b981, #059669);">
+                    ➕ เพิ่มงานเดียว
+                </button>
+            </div>
+
+            <!-- Bulk Add Tasks -->
+            <div class="bulk-add-container" id="bulkAddContainer">
+                <div class="bulk-add-header">
+                    <div class="bulk-add-title">✨ เพิ่มหลายงานพร้อมกัน</div>
+                </div>
+
+                <div class="bulk-add-help">
+                    💡 <strong>วิธีใช้:</strong> พิมพ์งานแต่ละรายการคั่นด้วยบรรทัดใหม่ (Enter)<br>
+                    📌 รูปแบบ: <code>งาน | ความสำคัญ | หมวดหมู่ | วันที่ | เวลาเริ่ม | เวลาสิ้นสุด | ไอคอน</code><br>
+                    🎨 <strong>ไอคอน:</strong> สามารถใส่ emoji ท้ายสุดได้ เช่น 🔥 📊 💪 🏠<br>
+                    📋 <strong>ตัวอย่าง:</strong> <code>ประชุมทีม | high | work | 2026-01-27 | 09:00 | 11:00 | 📊</code>
+                </div>
+
+                <textarea 
+                    id="bulkTaskInput" 
+                    class="bulk-textarea" 
+                    placeholder="พิมพ์งานแต่ละรายการ (แต่ละบรรทัด 1 งาน)
+
+ตัวอย่าง:
+ประชุมทีม | high | work | 2026-01-28 | 09:00 | 11:00 | 📊
+ส่งรายงาน | high | work | 2026-01-28 | 14:00 | | 📄
+ซื้อของ | medium | shopping | | | | 🛒
+ออกกำลังกาย | high | health | 2026-01-27 | 06:00 | 07:00 | 💪
+ทำงาน | medium | work | 2026-01-27 | 09:00 | 18:00 | 🔥
+
+รูปแบบเต็ม (ไอคอนไม่บังคับ):
+ทำงานบ้าน | low | personal | 2026-01-30 | 10:00 | 12:00 | 🏠"
+                    oninput="updateBulkPreview()"
+                ></textarea>
+
+                <div class="bulk-settings">
+                    <div class="bulk-setting">
+                        <label>ความสำคัญเริ่มต้น</label>
+                        <select id="bulkDefaultPriority">
+                            <option value="low">🟢 สำคัญน้อย</option>
+                            <option value="medium" selected>🟡 ปานกลาง</option>
+                            <option value="high">🔴 สำคัญมาก</option>
+                        </select>
+                    </div>
+
+                    <div class="bulk-setting">
+                        <label>
+                            หมวดหมู่เริ่มต้น
+                            <button id="quickManageCategoriesBtn" onclick="openQuickManageCategories()" style="background: transparent; border: 1px solid var(--primary); color: var(--primary); padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 8px;" title="จัดการหมวดหมู่">⚙️ จัดการ</button>
+                        </label>
+                        <select id="bulkDefaultCategory">
+                            <option value="personal" selected>👤 ส่วนตัว</option>
+                            <option value="work">💼 งาน</option>
+                            <option value="shopping">🛒 ช็อปปิ้ง</option>
+                            <option value="health">💪 สุขภาพ</option>
+                            <option value="study">📚 เรียน</option>
+                        </select>
+                    </div>
+
+                    <div class="bulk-setting">
+                        <label>วันที่เริ่มต้น</label>
+                        <input type="date" id="bulkDefaultDate">
+                    </div>
+
+                    <div class="bulk-setting">
+                        <label>🎨 ไอคอนเริ่มต้น</label>
+                        <div class="emoji-picker-container">
+                            <div class="emoji-input-wrapper">
+                                <div class="emoji-display" id="bulkEmojiDisplay" onclick="toggleEmojiPicker('bulk')"></div>
+                                <button class="btn btn-secondary" onclick="clearBulkEmoji()" style="padding: 8px 12px;">🗑️</button>
+                            </div>
+                            <div class="emoji-picker-popup" id="bulkEmojiPicker">
+                                <div class="emoji-picker-header">เลือกไอคอน</div>
+                                <div class="emoji-grid" id="bulkEmojiGrid">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bulk-preview" id="bulkPreview" style="display: none;">
+                    <div class="bulk-preview-title">
+                        📋 ตัวอย่าง: <span class="bulk-count" id="bulkCount">0</span> งาน
+                    </div>
+                    <div class="bulk-preview-list" id="bulkPreviewList">
+                        <!-- Preview items will be added here -->
+                    </div>
+                </div>
+
+                <div class="bulk-actions">
+                    <button class="btn btn-primary" onclick="addBulkTasks()">
+                        ➕ เพิ่มทั้งหมด (<span id="bulkAddCount">0</span> งาน)
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearBulkInput()">
+                        🗑️ ล้างข้อความ
+                    </button>
+                    <button class="btn btn-secondary" onclick="toggleBulkAdd()">
+                        ✕ ปิด
+                    </button>
+                </div>
+            </div>
+
+            <!-- Recurring Options -->
+            <div class="recurring-toggle" onclick="toggleRecurringOptions()">
+                <input type="checkbox" id="recurringCheckbox" onclick="event.stopPropagation()">
+                <label for="recurringCheckbox">🔄 งานที่ทำซ้ำ (Recurring Task)</label>
+            </div>
+
+            <div class="recurring-options" id="recurringOptions">
+                <div class="recurring-config">
+                    <div class="recurring-field">
+                        <label>รูปแบบการทำซ้ำ</label>
+                        <select id="recurringType" onchange="updateRecurringConfig()">
+                            <option value="daily">ทุกวัน</option>
+                            <option value="weekly">ทุกสัปดาห์</option>
+                            <option value="monthly">ทุกเดือน</option>
+                            <option value="weekdays">วันจันทร์-ศุกร์</option>
+                            <option value="weekends">วันเสาร์-อาทิตย์</option>
+                            <option value="custom">กำหนดเอง</option>
+                        </select>
+                    </div>
+
+                    <div class="recurring-field" id="intervalField">
+                        <label>ทำซ้ำทุกกี่วัน/สัปดาห์/เดือน</label>
+                        <input type="number" id="recurringInterval" value="1" min="1" max="365" onchange="updateRecurringPreview()">
+                    </div>
+
+                    <div class="recurring-field" style="grid-column: 1 / -1;" id="weekdayField" style="display: none;">
+                        <label>เลือกวัน</label>
+                        <div class="weekday-selector">
+                            <button type="button" class="weekday-btn" data-day="0" onclick="toggleWeekday(0)">อา</button>
+                            <button type="button" class="weekday-btn" data-day="1" onclick="toggleWeekday(1)">จ</button>
+                            <button type="button" class="weekday-btn" data-day="2" onclick="toggleWeekday(2)">อ</button>
+                            <button type="button" class="weekday-btn" data-day="3" onclick="toggleWeekday(3)">พ</button>
+                            <button type="button" class="weekday-btn" data-day="4" onclick="toggleWeekday(4)">พฤ</button>
+                            <button type="button" class="weekday-btn" data-day="5" onclick="toggleWeekday(5)">ศ</button>
+                            <button type="button" class="weekday-btn" data-day="6" onclick="toggleWeekday(6)">ส</button>
+                        </div>
+                    </div>
+
+                    <div class="recurring-field">
+                        <label>เริ่มต้นจาก</label>
+                        <input type="date" id="recurringStartDate">
+                    </div>
+
+                    <div class="recurring-field">
+                        <label>สิ้นสุด (ไม่บังคับ)</label>
+                        <input type="date" id="recurringEndDate">
+                    </div>
+                </div>
+
+                <div class="recurring-preview" id="recurringPreview">
+                    <div class="recurring-preview-title">📋 ตัวอย่าง:</div>
+                    <div id="recurringPreviewText">งานนี้จะทำซ้ำทุกวัน</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week Plan -->
+        <div class="week-plan" id="weekPlan">
+            <div class="week-plan-header">
+                <h2 class="week-plan-title">📅 5 วันข้างหน้า</h2>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-secondary" onclick="showDebugInfo()">🔍 Debug</button>
+                    <button class="btn btn-secondary" onclick="refreshWeekPlan()">🔄 รีเฟรช</button>
+                </div>
+            </div>
+            <div class="week-days" id="weekDays">
+                <!-- Will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Debug Panel -->
+        <div id="debugPanel" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); padding: 30px; border-radius: 20px; box-shadow: var(--shadow-lg); z-index: 9999; max-width: 90%; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="font-family: 'Kanit', sans-serif; font-size: 1.5rem;">🔍 Debug: ข้อมูลงานทั้งหมด</h3>
+                <button class="close-btn" onclick="closeDebugPanel()">✕</button>
+            </div>
+            <div id="debugContent"></div>
+        </div>
+        <div id="debugBackdrop" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9998;" onclick="closeDebugPanel()"></div>
+
+        <!-- Notification Panel -->
+        <div class="notification-panel" id="notificationPanel">
+            <div class="notification-header">
+                <div class="notification-title">🔔 แจ้งเตือน</div>
+                <button class="notification-close" onclick="toggleNotifications()">✕</button>
+            </div>
+            <div class="notification-list" id="notificationList">
+                <!-- Will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Todo Sections -->
+        <div class="todo-sections" id="todoSections">
+            <!-- Will be populated by JavaScript -->
+        </div>
+
+        <!-- Calendar View -->
+        <div class="calendar-container" id="calendarView">
+            <!-- Calendar Stats -->
+            <div class="calendar-stats">
+                <div class="calendar-stat-card">
+                    <div class="calendar-stat-icon">📅</div>
+                    <div class="calendar-stat-value" id="calMonthTodos">0</div>
+                    <div class="calendar-stat-label">งานในเดือนนี้</div>
+                </div>
+                <div class="calendar-stat-card">
+                    <div class="calendar-stat-icon">✅</div>
+                    <div class="calendar-stat-value" id="calMonthCompleted">0</div>
+                    <div class="calendar-stat-label">ทำเสร็จแล้ว</div>
+                </div>
+                <div class="calendar-stat-card">
+                    <div class="calendar-stat-icon">⏳</div>
+                    <div class="calendar-stat-value" id="calMonthPending">0</div>
+                    <div class="calendar-stat-label">รอดำเนินการ</div>
+                </div>
+                <div class="calendar-stat-card">
+                    <div class="calendar-stat-icon">🏖️</div>
+                    <div class="calendar-stat-value" id="calMonthDayOff">0</div>
+                    <div class="calendar-stat-label">วันหยุด</div>
+                </div>
+            </div>
+
+            <div class="calendar-header">
+                <h2 class="calendar-title" id="calendarMonth">มกราคม 2026</h2>
+                <div class="calendar-nav">
+                    <button class="nav-btn" onclick="previousMonth()">◀</button>
+                    <button class="nav-btn" onclick="todayMonth()">วันนี้</button>
+                    <button class="nav-btn" onclick="nextMonth()">▶</button>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="calendar-legend">
+                <div class="legend-item">
+                    <div class="legend-color today"></div>
+                    <span>วันนี้</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color has-todos"></div>
+                    <span>มีงาน</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color day-off"></div>
+                    <span>วันหยุด</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color overdue"></div>
+                    <span>เลยกำหนด</span>
+                </div>
+            </div>
+
+            <div class="calendar-grid" id="calendarGrid">
+                <!-- Will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Calendar Modal -->
+        <div class="calendar-modal" id="calendarModal" onclick="closeModal(event)">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="modalDate">งานวันที่...</h3>
+                    <button class="close-btn" onclick="closeModal()">✕</button>
+                </div>
+                
+                <!-- Leave Type Selection -->
+                <div id="leaveTypeSection" style="margin-bottom: 20px; padding: 15px; background: var(--bg-main); border-radius: 12px;">
+                    <div style="font-weight: 600; margin-bottom: 10px; color: var(--text-primary);">🏖️ ตั้งเป็นวันลา/หยุด</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px;">
+                        <label class="leave-type-option">
+                            <input type="radio" name="leaveType" value="" checked onchange="handleLeaveTypeChange()">
+                            <span>✅ วันทำงาน</span>
+                        </label>
+                        <label class="leave-type-option">
+                            <input type="radio" name="leaveType" value="dayoff" onchange="handleLeaveTypeChange()">
+                            <span>🏖️ Day Off</span>
+                        </label>
+                        <label class="leave-type-option">
+                            <input type="radio" name="leaveType" value="holiday" onchange="handleLeaveTypeChange()">
+                            <span>🎉 ลานักขัตฤกษ์</span>
+                        </label>
+                        <label class="leave-type-option">
+                            <input type="radio" name="leaveType" value="vacation" onchange="handleLeaveTypeChange()">
+                            <span>🏝️ ลาพักร้อน</span>
+                        </label>
+                        <label class="leave-type-option">
+                            <input type="radio" name="leaveType" value="sick" onchange="handleLeaveTypeChange()">
+                            <span>🤒 ลาป่วย</span>
+                        </label>
+                        <label class="leave-type-option">
+                            <input type="radio" name="leaveType" value="personal" onchange="handleLeaveTypeChange()">
+                            <span>📝 ลากิจ</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Admin All View User Status List -->
+                <div id="adminUserStatusSection" style="display: none; margin-bottom: 20px; padding: 15px; background: var(--bg-main); border-radius: 12px;">
+                    <div style="font-weight: 600; margin-bottom: 10px; color: var(--text-primary);">👥 สถานะวันลา/หยุดรายคน</div>
+                    <div id="adminUserStatusList" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Will be populated by JS -->
+                    </div>
+                </div>
+                
+                <div class="todo-list" id="modalTodos">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Theme Toggle -->
+    <div class="theme-toggle" onclick="toggleTheme()">
+        <span id="themeIcon">🌙</span>
+    </div>
+
+    <!-- Edit Todo Modal -->
+    <div class="edit-modal" id="editModal" onclick="closeEditModal(event)">
+        <div class="edit-modal-content" onclick="event.stopPropagation()">
+            <div class="edit-modal-header">
+                <h3 class="edit-modal-title">✏️ แก้ไขงาน</h3>
+                <button class="close-btn" onclick="closeEditModal()">✕</button>
+            </div>
+
+            <div class="edit-form-group">
+                <label class="edit-form-label">ชื่องาน</label>
+                <textarea id="editTodoText" class="edit-form-textarea" placeholder="ชื่องาน..."></textarea>
+            </div>
+
+            <div class="edit-form-group" id="editTodoCreatorGroup" style="display: none;">
+                <label class="edit-form-label">ผู้บันทึกงาน</label>
+                <select id="editTodoCreatedBy" class="edit-form-select"></select>
+            </div>
+
+            <div class="edit-form-row">
+                <div class="edit-form-group">
+                    <label class="edit-form-label">ความสำคัญ</label>
+                    <select id="editTodoPriority" class="edit-form-select">
+                        <option value="low">🟢 สำคัญน้อย</option>
+                        <option value="medium">🟡 ปานกลาง</option>
+                        <option value="high">🔴 สำคัญมาก</option>
+                    </select>
+                </div>
+
+                <div class="edit-form-group">
+                    <label class="edit-form-label">หมวดหมู่</label>
+                    <select id="editTodoCategory" class="edit-form-select">
+                        <option value="personal">👤 ส่วนตัว</option>
+                        <option value="work">💼 งาน</option>
+                        <option value="shopping">🛒 ช็อปปิ้ง</option>
+                        <option value="health">💪 สุขภาพ</option>
+                        <option value="study">📚 เรียน</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="edit-form-group">
+                <label class="edit-form-label">วันที่</label>
+                <input type="date" id="editTodoDate" class="edit-form-input">
+            </div>
+
+            <div class="edit-form-group">
+                <label class="edit-form-label">ช่วงเวลา</label>
+                <div class="edit-form-time-group">
+                    <div>
+                        <label class="edit-form-label" style="font-size: 0.8rem; margin-bottom: 4px;">เริ่ม</label>
+                        <input type="time" id="editTodoTimeStart" class="edit-form-input">
+                    </div>
+                    <div>
+                        <label class="edit-form-label" style="font-size: 0.8rem; margin-bottom: 4px;">สิ้นสุด</label>
+                        <input type="time" id="editTodoTimeEnd" class="edit-form-input">
+                    </div>
+                </div>
+            </div>
+
+            <div class="edit-form-group">
+                <label class="edit-form-label">🏢 สาขา (เลือกได้หลายสาขา)</label>
+                <div class="branch-grid" id="editBranchGrid">
+                    <!-- Will be populated by JS -->
+                </div>
+            </div>
+
+            <div class="edit-modal-actions">
+                <button class="btn btn-primary" onclick="saveEditedTodo()" style="flex: 1;">
+                    💾 บันทึก
+                </button>
+                <button class="btn btn-secondary" onclick="closeEditModal()">
+                    ✕ ยกเลิก
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="settings-modal" id="settingsModal" onclick="closeSettings(event)">
+        <div class="settings-modal-content" onclick="event.stopPropagation()" style="background: var(--bg-main); padding: 20px; border-radius: 20px; max-width: 600px;">
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+                <button class="close-btn" onclick="closeSettings()">✕</button>
+            </div>
+
+            <!-- User Management Card (Admin Only) -->
+            <div id="settingsUserSection" style="display: none; background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 20px; border: 1px solid #e2e8f0;">
+                <h3 style="color: #1e293b; font-size: 1.2rem; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                    👥 จัดการผู้ใช้งาน (Admin)
+                </h3>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="color: #475569; font-size: 0.9rem; margin-bottom: 8px; display: block;">👁️ View as:</label>
+                    <div style="position: relative;">
+                        <select id="adminViewSelector" onchange="switchAdminView(this.value)" style="width: 100%; padding: 10px 15px; border-radius: 8px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; appearance: none; font-size: 1rem;">
+                            <!-- Populated by JS -->
+                        </select>
+                        <span style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #64748b;">▼</span>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px;">
+                    <button onclick="openUserManagementModal()" style="flex: 1; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 500; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.3);">
+                        จัดการ Users
+                    </button>
+                    <button onclick="logout()" style="flex: 1; background: white; color: #ef4444; border: 2px solid #ef4444; padding: 10px; border-radius: 8px; font-weight: 500; cursor: pointer;">
+                        Log out
+                    </button>
+                </div>
+            </div>
+
+            <!-- Branch Management Card -->
+            <div class="settings-section" id="settingsBranchSection" style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0;">
+                <h3 style="color: #1e293b; font-size: 1.2rem; margin-bottom: 5px; display: flex; align-items: center; gap: 8px;">
+                    🏢 จัดการสาขา
+                </h3>
+                <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 20px;">เพิ่ม แก้ไข หรือลบสาขาที่ใช้งาน</p>
+                
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <input type="text" id="settingsBranchInput" placeholder="รหัสสาขา (เช่น B030)" style="flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; background: #f8fafc;">
+                    <button onclick="addCustomBranchFromSettings()" style="background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 500; cursor: pointer; white-space: nowrap;">
+                        + เพิ่มสาขา
+                    </button>
+                </div>
+
+                <div class="custom-category-list" id="settingsBranchList" style="display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Will be populated by JS -->
+                </div>
+            </div>
+            
+            <!-- Category Management Card -->
+             <div class="settings-section" id="settingsCategorySection" style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; margin-top: 20px;">
+                <h3 style="color: #1e293b; font-size: 1.2rem; margin-bottom: 5px; display: flex; align-items: center; gap: 8px;">
+                    📂 จัดการหมวดหมู่
+                </h3>
+                 <div class="category-input-group">
+                    <div class="category-input-row">
+                        <input type="text" id="settingsCategoryIcon" class="category-icon-input" placeholder="📝" maxlength="2" style="font-size: 1.2rem;">
+                        <input type="text" id="settingsCategoryName" class="category-name-input" placeholder="ชื่อหมวดหมู่" style="flex: 1; padding: 12px; font-size: 1rem;">
+                        <button class="btn btn-primary" onclick="addCustomCategoryFromSettings()">+ เพิ่ม</button>
+                    </div>
+                </div>
+                <div class="custom-category-list" id="settingsCategoryList" style="margin-top: 15px;"></div>
+             </div>
+
+        </div>
+    </div>
+
+    <!-- User Permissions Modal -->
+    <div class="edit-modal" id="userPermissionsModal" onclick="closeUserPermissionsModal(event)">
+        <div class="edit-modal-content" onclick="event.stopPropagation()">
+            <div class="edit-modal-header">
+                <h3 class="edit-modal-title">🔒 กำหนดสิทธิ์: <span id="permissionsUsername"></span></h3>
+                <button class="close-btn" onclick="closeUserPermissionsModal()">✕</button>
+            </div>
+            
+            <div style="padding: 15px;">
+                <div class="permission-item" style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; padding: 15px; background: var(--bg-main); border-radius: 12px; border: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.2rem;">🕘</span>
+                        <div>
+                            <div style="font-weight: 600;">บันทึกเวลางาน</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary);">อนุญาตให้บันทึกเวลาเข้า-ออกงาน</div>
+                        </div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="perm_branch_visit">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+                <div class="permission-item" style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; padding: 15px; background: var(--bg-main); border-radius: 12px; border: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.2rem;">✅</span>
+                        <div>
+                            <div style="font-weight: 600;">จัดการงาน (Manage Todos)</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary);">เพิ่ม/แก้ไข/ลบ งานต่างๆ</div>
+                        </div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="perm_manage_todo">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+                <div class="permission-item" style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; padding: 15px; background: var(--bg-main); border-radius: 12px; border: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.2rem;">📤</span>
+                        <div>
+                            <div style="font-weight: 600;">Export ข้อมูล</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary);">ดาวน์โหลดไฟล์ Excel/CSV</div>
+                        </div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="perm_export_data">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn btn-primary" onclick="saveUserPermissions()" style="width: 100%; padding: 12px; font-size: 1rem;">💾 บันทึกสิทธิ์</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Branch Visit Modal -->
+    <div class="edit-branch-modal" id="editBranchModal" onclick="closeEditBranchModal(event)">
+        <div class="edit-branch-modal-content" onclick="event.stopPropagation()">
+            <div class="edit-branch-modal-header">
+                <h3 class="edit-branch-modal-title">✏️ แก้ไขเวลางาน</h3>
+                <button class="close-btn" onclick="closeEditBranchModal()">✕</button>
+            </div>
+
+            <div class="edit-branch-form-group">
+                <label class="edit-branch-label">วันที่</label>
+                <input type="date" id="editBranchVisitDate" class="edit-branch-input">
+            </div>
+
+            <div class="edit-branch-form-group" id="editBranchVisitBranchGroup" style="display: none;">
+                <label class="edit-branch-label">สาขา</label>
+                <select id="editBranchVisitBranch" class="edit-branch-input">
+                    <option value="">-- เลือกสาขา --</option>
+                </select>
+            </div>
+
+            <div class="edit-branch-form-group">
+                <label class="edit-branch-label">เวลาเข้า</label>
+                <input type="time" id="editBranchVisitTime" class="edit-branch-input">
+            </div>
+
+            <div class="edit-branch-form-group">
+                <label class="edit-branch-label">เวลาออก</label>
+                <input type="time" id="editBranchVisitTimeOut" class="edit-branch-input">
+            </div>
+
+            <div class="edit-branch-actions">
+                <button class="btn btn-primary" onclick="saveEditedBranchVisit()" style="flex: 1;">
+                    💾 บันทึก
+                </button>
+                <button class="btn" onclick="deleteEditedBranchVisit()" style="background: var(--danger); color: white;">
+                    🗑️ ลบ
+                </button>
+                <button class="btn btn-secondary" onclick="closeEditBranchModal()">
+                    ✕ ยกเลิก
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Todo Modal -->
+    <div class="edit-modal" id="addTodoModal" onclick="closeAddTodoModal(event)">
+        <div class="edit-modal-content" onclick="event.stopPropagation()">
+            <div class="edit-modal-header">
+                <h3 class="edit-modal-title">➕ เพิ่มงานใหม่</h3>
+                <button class="close-btn" onclick="closeAddTodoModal()">✕</button>
+            </div>
+
+            <div class="edit-form-group">
+                <label class="edit-form-label">ชื่องาน</label>
+                <input type="text" id="addTodoText" class="edit-form-input" placeholder="ใส่งานที่ต้องทำ...">
+            </div>
+
+            <div class="edit-form-group" id="addTodoCreatorGroup" style="display: none;">
+                <label class="edit-form-label">ผู้บันทึกงาน</label>
+                <select id="addTodoCreatedBy" class="edit-form-select"></select>
+            </div>
+
+            <div class="edit-form-row">
+                <div class="edit-form-group">
+                    <label class="edit-form-label">ความสำคัญ</label>
+                    <select id="addTodoPriority" class="edit-form-select">
+                        <option value="high">🔴 สำคัญมาก</option>
+                        <option value="medium" selected>🟡 ปานกลาง</option>
+                        <option value="low">🟢 สำคัญน้อย</option>
+                    </select>
+                </div>
+                <div class="edit-form-group">
+                    <label class="edit-form-label">หมวดหมู่</label>
+                    <select id="addTodoCategory" class="edit-form-select">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="edit-form-group">
+                <label class="edit-form-label">วันที่</label>
+                <input type="date" id="addTodoDate" class="edit-form-input">
+            </div>
+
+            <div class="edit-form-group">
+                <label class="edit-form-label">ช่วงเวลา</label>
+                <div class="edit-form-time-group">
+                    <div>
+                        <label class="edit-form-label" style="font-size: 0.8rem; margin-bottom: 4px;">เริ่ม</label>
+                        <input type="time" id="addTodoTimeStart" class="edit-form-input">
+                    </div>
+                    <div>
+                        <label class="edit-form-label" style="font-size: 0.8rem; margin-bottom: 4px;">สิ้นสุด</label>
+                        <input type="time" id="addTodoTimeEnd" class="edit-form-input">
+                    </div>
+                </div>
+            </div>
+
+            <div class="edit-form-group">
+                <label class="edit-form-label">🏢 สาขา (เลือกได้หลายสาขา)</label>
+                <div class="branch-grid" id="addBranchGrid">
+                    <!-- Will be populated by JS -->
+                </div>
+            </div>
+
+            <div class="edit-modal-actions">
+                <button class="btn btn-primary" onclick="saveNewTodo()" style="flex: 1;">
+                    ➕ เพิ่มงาน
+                </button>
+                <button class="btn btn-secondary" onclick="closeAddTodoModal()">
+                    ✕ ยกเลิก
+                </button>
+            </div>
+        </div>
+    </div>
+
+    </div><!-- Close container -->
+    </div><!-- Close main-wrapper -->
+
+    <!-- User Management Modal -->
+    <div class="edit-modal" id="userManagementModal" onclick="closeUserManagementModal(event)">
+        <div class="edit-modal-content" onclick="event.stopPropagation()">
+            <div class="edit-modal-header">
+                <h3 class="edit-modal-title">👥 จัดการผู้ใช้งาน</h3>
+                <button class="close-btn" onclick="closeUserManagementModal()">✕</button>
+            </div>
+            
+            <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-main); border-radius: 12px; border: 1px solid var(--border);">
+                <h4 style="margin-bottom: 10px;">เพิ่มผู้ใช้งานใหม่</h4>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <input type="text" id="newUsername" placeholder="Username" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+                    <input type="text" id="newDisplayName" placeholder="ชื่อเล่น" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+                    <input type="password" id="newPassword" placeholder="Password" style="flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+                    <select id="newUserRole" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="addUser()">เพิ่ม</button>
+                </div>
+            </div>
+
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="text-align: left; border-bottom: 2px solid var(--border);">
+                            <th style="padding: 10px;">Username</th>
+                            <th style="padding: 10px;">ชื่อเล่น</th>
+                            <th style="padding: 10px;">Role</th>
+                            <th style="padding: 10px; text-align: right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userListBody">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
