@@ -22,8 +22,11 @@
         // Save updated users immediately
         localStorage.setItem('users', JSON.stringify(users));
 
-        function saveUsers() {
+        async function saveUsers() {
             localStorage.setItem('users', JSON.stringify(users));
+            if (window.FirestoreAdapter) {
+                await FirestoreAdapter.saveUsers(users);
+            }
         }
 
         function normalizeUsers() {
@@ -116,13 +119,17 @@
             return leaveDays.filter(l => l && l.date === dateStr);
         }
 
-        function saveDayOffsAndLeaves() {
+        async function saveDayOffsAndLeaves() {
             if (!currentUser) return;
             if (currentUser.role === 'admin' && viewingUser === 'all') return;
             const prefix = currentUser.role === 'admin' && viewingUser ? viewingUser + '_' : currentUser.username + '_';
             try {
                 localStorage.setItem(prefix + 'dayOffs', JSON.stringify(dayOffs));
                 localStorage.setItem(prefix + 'leaveDays', JSON.stringify(leaveDays));
+                if (window.FirestoreAdapter) {
+                    await FirestoreAdapter.setItem(prefix + 'dayOffs', dayOffs);
+                    await FirestoreAdapter.setItem(prefix + 'leaveDays', leaveDays);
+                }
             } catch (e) {
                 showToast('บันทึกวันลา/วันหยุดไม่สำเร็จ (พื้นที่เต็มหรือถูกบล็อก)', 'error');
             }
@@ -314,20 +321,36 @@
             location.reload();
         }
 
-        function loadUserData() {
+        async function loadUserData() {
             if (!currentUser) return;
             
+            const getItem = async (key) => {
+                if (window.FirestoreAdapter) {
+                    try {
+                        const val = await FirestoreAdapter.getItem(key);
+                        if (val) return val;
+                    } catch (e) {
+                        console.error('Firestore error', e);
+                    }
+                }
+                try {
+                    return JSON.parse(localStorage.getItem(key));
+                } catch {
+                    return null;
+                }
+            };
+
             if (currentUser.role === 'admin' && viewingUser === 'all') {
                 todos = [];
                 branchVisits = [];
                 dayOffs = [];
                 leaveDays = [];
                 // Aggregate data from all users
-                users.forEach(u => {
-                    const userTodos = JSON.parse(localStorage.getItem(u.username + '_todos')) || [];
-                    const userVisits = JSON.parse(localStorage.getItem(u.username + '_branchVisits')) || [];
-                    const userDayOffs = JSON.parse(localStorage.getItem(u.username + '_dayOffs')) || [];
-                    const userLeaves = JSON.parse(localStorage.getItem(u.username + '_leaveDays')) || [];
+                for (const u of users) {
+                    const userTodos = (await getItem(u.username + '_todos')) || [];
+                    const userVisits = (await getItem(u.username + '_branchVisits')) || [];
+                    const userDayOffs = (await getItem(u.username + '_dayOffs')) || [];
+                    const userLeaves = (await getItem(u.username + '_leaveDays')) || [];
                     
                     // Add owner info
                     userTodos.forEach(t => t.owner = u.username);
@@ -344,43 +367,6 @@
                     
                     todos = [...todos, ...userTodos];
                     branchVisits = [...branchVisits, ...userVisits];
-                });
-
-                const legacyTodos = localStorage.getItem('todos');
-                if (legacyTodos) {
-                    try {
-                        const parsed = JSON.parse(legacyTodos) || [];
-                        parsed.forEach(t => t.owner = t.owner || 'legacy');
-                        todos = [...todos, ...parsed];
-                    } catch {}
-                }
-
-                const legacyVisits = localStorage.getItem('branchVisits');
-                if (legacyVisits) {
-                    try {
-                        const parsed = JSON.parse(legacyVisits) || [];
-                        parsed.forEach(v => v.owner = v.owner || 'legacy');
-                        branchVisits = [...branchVisits, ...parsed];
-                    } catch {}
-                }
-
-                const legacyDayOffs = localStorage.getItem('dayOffs');
-                if (legacyDayOffs) {
-                    try {
-                        const parsed = JSON.parse(legacyDayOffs) || [];
-                        parsed.forEach(d => {
-                            const dateStr = getDayOffDateValue(d);
-                            if (dateStr) dayOffs.push({ date: dateStr, owner: 'legacy' });
-                        });
-                    } catch {}
-                }
-
-                const legacyLeaves = localStorage.getItem('leaveDays');
-                if (legacyLeaves) {
-                    try {
-                        const parsed = JSON.parse(legacyLeaves) || [];
-                        parsed.forEach(l => leaveDays.push({ ...l, owner: l.owner || 'legacy' }));
-                    } catch {}
                 }
 
                 todos.forEach(t => {
@@ -399,86 +385,21 @@
                 
                 // Load admin's settings for consistency
                 const adminPrefix = currentUser.username + '_';
-                customBranches = JSON.parse(localStorage.getItem(adminPrefix + 'customBranches')) || [];
-                customCategories = JSON.parse(localStorage.getItem(adminPrefix + 'customCategories')) || [];
+                customBranches = (await getItem(adminPrefix + 'customBranches')) || [];
+                customCategories = (await getItem(adminPrefix + 'customCategories')) || [];
                 
             } else {
                 const prefix = currentUser.role === 'admin' && viewingUser ? viewingUser + '_' : currentUser.username + '_';
-                todos = JSON.parse(localStorage.getItem(prefix + 'todos')) || [];
-                dayOffs = JSON.parse(localStorage.getItem(prefix + 'dayOffs')) || [];
-                leaveDays = JSON.parse(localStorage.getItem(prefix + 'leaveDays')) || [];
-                customBranches = JSON.parse(localStorage.getItem(prefix + 'customBranches')) || [];
-                customCategories = JSON.parse(localStorage.getItem(prefix + 'customCategories')) || [];
-                branchVisits = JSON.parse(localStorage.getItem(prefix + 'branchVisits')) || [];
-                dayOffs = dayOffs.map(getDayOffDateValue).filter(Boolean);
-                leaveDays = leaveDays.filter(l => l && typeof l.date === 'string' && typeof l.type === 'string');
+                todos = (await getItem(prefix + 'todos')) || [];
+                dayOffs = (await getItem(prefix + 'dayOffs')) || [];
+                leaveDays = (await getItem(prefix + 'leaveDays')) || [];
+                customBranches = (await getItem(prefix + 'customBranches')) || [];
+                customCategories = (await getItem(prefix + 'customCategories')) || [];
+                branchVisits = (await getItem(prefix + 'branchVisits')) || [];
                 
-                // Always try to merge legacy data if it exists for EVERYONE (including Admin)
-                const legacyDayOffs = localStorage.getItem('dayOffs');
-                if (legacyDayOffs) {
-                    try {
-                        const parsed = JSON.parse(legacyDayOffs) || [];
-                        const migrated = parsed.map(getDayOffDateValue).filter(Boolean);
-                        if (migrated.length > 0) {
-                            // Merge and deduplicate
-                            const combined = [...dayOffs, ...migrated];
-                            const unique = [...new Set(combined)];
-                            
-                            // Only save if we actually added something
-                            if (unique.length > dayOffs.length) {
-                                dayOffs = unique;
-                                localStorage.setItem(prefix + 'dayOffs', JSON.stringify(dayOffs));
-                            }
-                        }
-                    } catch {}
-                }
-
-                const legacyLeaves = localStorage.getItem('leaveDays');
-                if (legacyLeaves) {
-                    try {
-                        const parsed = JSON.parse(legacyLeaves) || [];
-                        const migrated = (parsed || []).filter(l => l && typeof l.date === 'string' && typeof l.type === 'string');
-                        if (migrated.length > 0) {
-                            // Merge and deduplicate by date
-                            const existingDates = new Set(leaveDays.map(l => l.date));
-                            let added = false;
-                            migrated.forEach(l => {
-                                if (!existingDates.has(l.date)) {
-                                    leaveDays.push(l);
-                                    existingDates.add(l.date);
-                                    added = true;
-                                }
-                            });
-                            
-                            if (added) {
-                                localStorage.setItem(prefix + 'leaveDays', JSON.stringify(leaveDays));
-                            }
-                        }
-                    } catch {}
-                }
-
-                if (todos.length === 0) {
-                    const legacyTodos = localStorage.getItem('todos');
-                    if (legacyTodos) {
-                        try {
-                            todos = JSON.parse(legacyTodos) || [];
-                            localStorage.setItem(prefix + 'todos', JSON.stringify(todos));
-                            localStorage.removeItem('todos');
-                        } catch {}
-                    }
-                }
-
-                if (branchVisits.length === 0) {
-                    const legacyVisits = localStorage.getItem('branchVisits');
-                    if (legacyVisits) {
-                        try {
-                            branchVisits = JSON.parse(legacyVisits) || [];
-                            localStorage.setItem(prefix + 'branchVisits', JSON.stringify(branchVisits));
-                            localStorage.removeItem('branchVisits');
-                        } catch {}
-                    }
-                }
-
+                dayOffs = Array.isArray(dayOffs) ? dayOffs.map(getDayOffDateValue).filter(Boolean) : [];
+                leaveDays = Array.isArray(leaveDays) ? leaveDays.filter(l => l && typeof l.date === 'string' && typeof l.type === 'string') : [];
+                
                 const dataOwner = currentUser.role === 'admin' && viewingUser ? viewingUser : currentUser.username;
                 todos.forEach(t => {
                     t.createdBy = t.createdBy || dataOwner || '';
@@ -492,31 +413,28 @@
             }
         }
 
-        function saveTodos() {
+        async function saveTodos() {
             if (!currentUser) return;
             
-            // If admin is viewing 'all', we shouldn't save back to 'all'.
-            // If admin is viewing specific user, save to that user.
-            // If normal user, save to self.
-            
             if (currentUser.role === 'admin' && viewingUser === 'all') {
-                // Read-only or complex save? Let's prevent save or save individually
-                // For now, let's say Admin can't edit in "All View" to keep it safe, OR
-                // we iterate and save back.
-                // Simplest: Admin edits their OWN data by default.
-                // If viewing 'user1', admin edits 'user1' data.
                 return; 
             }
             
             const prefix = currentUser.role === 'admin' && viewingUser ? viewingUser + '_' : currentUser.username + '_';
             localStorage.setItem(prefix + 'todos', JSON.stringify(todos));
+            if (window.FirestoreAdapter) {
+                await FirestoreAdapter.setItem(prefix + 'todos', todos);
+            }
         }
 
         // Override other save functions similarly...
-        function saveBranchVisits() {
+        async function saveBranchVisits() {
             if (!currentUser) return;
             const prefix = currentUser.role === 'admin' && viewingUser ? viewingUser + '_' : currentUser.username + '_';
             localStorage.setItem(prefix + 'branchVisits', JSON.stringify(branchVisits));
+            if (window.FirestoreAdapter) {
+                await FirestoreAdapter.setItem(prefix + 'branchVisits', branchVisits);
+            }
         }
         
         function updateAdminViewSelector() {
@@ -723,7 +641,23 @@
         }
 
         // Initialize
-        function init() {
+        async function init() {
+            // Load users from Firebase
+            if (window.FirestoreAdapter) {
+                try {
+                    const remoteUsers = await FirestoreAdapter.getUsers();
+                    if (remoteUsers) {
+                        users = remoteUsers;
+                        localStorage.setItem('users', JSON.stringify(users));
+                    } else {
+                        // Migrate initial local users to Firebase if empty
+                        await FirestoreAdapter.saveUsers(users);
+                    }
+                } catch (e) {
+                    console.error('Error loading users from Firebase:', e);
+                }
+            }
+
             const storedUser = sessionStorage.getItem('currentUser');
             if (!storedUser) {
                 document.getElementById('loginOverlay').style.display = 'flex';
@@ -736,7 +670,7 @@
             sessionStorage.setItem('currentUser', JSON.stringify(freshUser));
 
             document.getElementById('loginOverlay').style.display = 'none';
-            loadUserData();
+            await loadUserData();
             initializeApp();
         }
 
@@ -1469,7 +1403,7 @@
             }
         }
 
-        function saveBranchVisits() {
+        async function saveBranchVisits() {
             if (!currentUser) return;
 
             if (currentUser.role === 'admin' && viewingUser === 'all') {
@@ -1479,6 +1413,9 @@
             const prefix = currentUser.role === 'admin' && viewingUser ? viewingUser + '_' : currentUser.username + '_';
             localStorage.setItem(prefix + 'branchVisits', JSON.stringify(branchVisits));
             localStorage.removeItem('branchVisits');
+            if (window.FirestoreAdapter) {
+                await FirestoreAdapter.setItem(prefix + 'branchVisits', branchVisits);
+            }
         }
 
         function updateBranchVisitSelector() {
@@ -3087,7 +3024,7 @@
         }
 
         // Save to LocalStorage
-        function saveTodos() {
+        async function saveTodos() {
             if (!currentUser) return;
 
             if (currentUser.role === 'admin' && viewingUser === 'all') {
@@ -3097,6 +3034,9 @@
             const prefix = currentUser.role === 'admin' && viewingUser ? viewingUser + '_' : currentUser.username + '_';
             localStorage.setItem(prefix + 'todos', JSON.stringify(todos));
             localStorage.removeItem('todos');
+            if (window.FirestoreAdapter) {
+                await FirestoreAdapter.setItem(prefix + 'todos', todos);
+            }
         }
 
         function refreshAllViews() {
