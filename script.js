@@ -3381,11 +3381,14 @@
                             const timeOut = (visit.timeOut || '').substring(0, 5);
                             const timeText = timeOut ? `${timeIn}-${timeOut}` : timeIn;
                             const branchDisplay = visit.branch ? (branchNames[visit.branch] || visit.branch) : '';
-                            const visitTitle = visit.branch ? `🏢 ${branchDisplay}` : '🕘 เวลางาน';
+                            const visitTitle = visit.branch ? `${branchDisplay}` : 'เวลางาน';
                             return `
                             <div class="calendar-branch-visit" onclick="event.stopPropagation(); editBranchVisit(${visit.id})">
-                                <span>${visit.owner ? `<span style="font-size:0.8em; margin-right:2px;">(${getUserDisplayName(visit.owner)})</span>` : ''}${visitTitle}</span>
-                                <span class="branch-visit-time">⏰ ${timeText}</span>
+                                <div class="branch-visit-branch">
+                                    <span>🏢</span>
+                                    <span>${visit.owner ? `(${getUserDisplayName(visit.owner)}) ` : ''}${visitTitle}</span>
+                                </div>
+                                <div class="branch-visit-time">⏰ ${timeText}</div>
                             </div>
                         `}).join('');
                         

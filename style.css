@@ -575,7 +575,7 @@
         }
 
         .calendar-task-item {
-            font-size: 0.65rem;
+            font-size: 0.7rem;
             padding: 2px 4px;
             background: var(--bg-card);
             border-radius: 4px;
@@ -614,7 +614,7 @@
 
         .calendar-task-time {
             color: var(--text-secondary);
-            font-size: 0.6rem;
+            font-size: inherit;
         }
 
         .calendar-task-branch {
@@ -623,7 +623,7 @@
         }
 
         .calendar-more-tasks {
-            font-size: 0.65rem;
+            font-size: 0.7rem;
             color: var(--primary);
             font-weight: 600;
             cursor: pointer;
@@ -742,12 +742,14 @@
             font-weight: 700;
             margin-bottom: 2px;
             display: flex;
-            align-items: center;
-            justify-content: space-between;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: flex-start;
             gap: 4px;
             cursor: pointer;
             transition: all 0.2s ease;
             position: relative;
+            line-height: 1.15;
         }
 
         .day-off-badge {
@@ -813,9 +815,20 @@
             font-size: 0.8rem;
         }
 
+        .branch-visit-branch {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            width: 100%;
+            white-space: normal;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .branch-visit-time {
-            font-size: 0.65rem;
+            font-size: inherit;
             opacity: 0.9;
+            width: 100%;
         }
 
         /* Edit Branch Visit Modal */
