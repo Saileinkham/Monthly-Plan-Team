@@ -6,7 +6,7 @@
     <title>Monthly Plan</title>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20260203-11">
+    <link rel="stylesheet" href="style.css?v=20260203-15">
 </head>
 <body>
     <!-- Sidebar Navigation -->
@@ -576,6 +576,9 @@
                 <button class="btn btn-primary" onclick="openAddTodoModal()" style="font-size: 1.1rem; padding: 14px 30px; background: linear-gradient(135deg, #10b981, #059669);">
                     ➕ เพิ่มงานเดียว
                 </button>
+                <button class="btn btn-primary" id="adminAssignTodoBtn" onclick="openAdminAssignTodoModal()" style="display: none; font-size: 1.1rem; padding: 14px 30px; background: linear-gradient(135deg, #6366f1, #4f46e5);">
+                    👥 ป้อนงานให้ User
+                </button>
             </div>
 
             <!-- Bulk Add Tasks -->
@@ -688,7 +691,7 @@
                         <label>รูปแบบการทำซ้ำ</label>
                         <select id="recurringType" onchange="updateRecurringConfig()">
                             <option value="daily">ทุกวัน</option>
-                            <option value="weekly">ทุกสัปดาห์</option>
+                            <option value="weekly">เลือกวันในสัปดาห์</option>
                             <option value="monthly">ทุกเดือน</option>
                             <option value="weekdays">วันจันทร์-ศุกร์</option>
                             <option value="weekends">วันเสาร์-อาทิตย์</option>
@@ -699,6 +702,44 @@
                     <div class="recurring-field" id="intervalField">
                         <label>ทำซ้ำทุกกี่วัน/สัปดาห์/เดือน</label>
                         <input type="number" id="recurringInterval" value="1" min="1" max="365" onchange="updateRecurringPreview()">
+                    </div>
+
+                    <div class="recurring-field" id="monthlyDayField">
+                        <label>วันที่ของเดือน</label>
+                        <select id="recurringMonthlyDay" onchange="updateRecurringPreview()">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                            <option value="12">12</option>
+                            <option value="13">13</option>
+                            <option value="14">14</option>
+                            <option value="15">15</option>
+                            <option value="16">16</option>
+                            <option value="17">17</option>
+                            <option value="18">18</option>
+                            <option value="19">19</option>
+                            <option value="20">20</option>
+                            <option value="21">21</option>
+                            <option value="22">22</option>
+                            <option value="23">23</option>
+                            <option value="24">24</option>
+                            <option value="25">25</option>
+                            <option value="26">26</option>
+                            <option value="27">27</option>
+                            <option value="28">28</option>
+                            <option value="29">29</option>
+                            <option value="30">30</option>
+                            <option value="31">31</option>
+                            <option value="last">สิ้นเดือน</option>
+                        </select>
                     </div>
 
                     <div class="recurring-field" style="grid-column: 1 / -1;" id="weekdayField" style="display: none;">
@@ -1201,11 +1242,294 @@
                 </div>
             </div>
 
+            <div class="recurring-toggle" onclick="toggleAddTodoRecurringOptions()">
+                <input type="checkbox" id="addTodoRecurringCheckbox" onclick="event.stopPropagation()">
+                <label for="addTodoRecurringCheckbox">🔄 งานที่ทำซ้ำ (Recurring Task)</label>
+            </div>
+
+            <div class="recurring-options" id="addTodoRecurringOptions">
+                <div class="recurring-config">
+                    <div class="recurring-field">
+                        <label>รูปแบบการทำซ้ำ</label>
+                        <select id="addTodoRecurringType" onchange="updateAddTodoRecurringConfig()">
+                            <option value="daily">ทุกวัน</option>
+                            <option value="weekly">เลือกวันในสัปดาห์</option>
+                            <option value="monthly">ทุกเดือน</option>
+                            <option value="weekdays">วันจันทร์-ศุกร์</option>
+                            <option value="weekends">วันเสาร์-อาทิตย์</option>
+                            <option value="custom">กำหนดเอง</option>
+                        </select>
+                    </div>
+
+                    <div class="recurring-field" id="addTodoIntervalField">
+                        <label>ทำซ้ำทุกกี่วัน/สัปดาห์/เดือน</label>
+                        <input type="number" id="addTodoRecurringInterval" value="1" min="1" max="365" onchange="updateAddTodoRecurringPreview()">
+                    </div>
+
+                    <div class="recurring-field" id="addTodoMonthlyDayField">
+                        <label>วันที่ของเดือน</label>
+                        <select id="addTodoRecurringMonthlyDay" onchange="updateAddTodoRecurringPreview()">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                            <option value="12">12</option>
+                            <option value="13">13</option>
+                            <option value="14">14</option>
+                            <option value="15">15</option>
+                            <option value="16">16</option>
+                            <option value="17">17</option>
+                            <option value="18">18</option>
+                            <option value="19">19</option>
+                            <option value="20">20</option>
+                            <option value="21">21</option>
+                            <option value="22">22</option>
+                            <option value="23">23</option>
+                            <option value="24">24</option>
+                            <option value="25">25</option>
+                            <option value="26">26</option>
+                            <option value="27">27</option>
+                            <option value="28">28</option>
+                            <option value="29">29</option>
+                            <option value="30">30</option>
+                            <option value="31">31</option>
+                            <option value="last">สิ้นเดือน</option>
+                        </select>
+                    </div>
+
+                    <div class="recurring-field" style="grid-column: 1 / -1;" id="addTodoWeekdayField">
+                        <label>เลือกวัน</label>
+                        <div class="weekday-selector">
+                            <button type="button" class="add-weekday-btn" data-day="0" onclick="toggleAddTodoWeekday(0)">อา</button>
+                            <button type="button" class="add-weekday-btn" data-day="1" onclick="toggleAddTodoWeekday(1)">จ</button>
+                            <button type="button" class="add-weekday-btn" data-day="2" onclick="toggleAddTodoWeekday(2)">อ</button>
+                            <button type="button" class="add-weekday-btn" data-day="3" onclick="toggleAddTodoWeekday(3)">พ</button>
+                            <button type="button" class="add-weekday-btn" data-day="4" onclick="toggleAddTodoWeekday(4)">พฤ</button>
+                            <button type="button" class="add-weekday-btn" data-day="5" onclick="toggleAddTodoWeekday(5)">ศ</button>
+                            <button type="button" class="add-weekday-btn" data-day="6" onclick="toggleAddTodoWeekday(6)">ส</button>
+                        </div>
+                    </div>
+
+                    <div class="recurring-field">
+                        <label>เริ่มต้นจาก</label>
+                        <input type="date" id="addTodoRecurringStartDate">
+                    </div>
+
+                    <div class="recurring-field">
+                        <label>สิ้นสุด (ไม่บังคับ)</label>
+                        <input type="date" id="addTodoRecurringEndDate">
+                    </div>
+                </div>
+
+                <div class="recurring-preview">
+                    <div class="recurring-preview-title">📋 ตัวอย่าง:</div>
+                    <div id="addTodoRecurringPreviewText">งานนี้จะทำซ้ำทุกวัน</div>
+                </div>
+            </div>
+
             <div class="edit-modal-actions">
                 <button class="btn btn-primary" onclick="saveNewTodo()" style="flex: 1;">
                     ➕ เพิ่มงาน
                 </button>
                 <button class="btn btn-secondary" onclick="closeAddTodoModal()">
+                    ✕ ยกเลิก
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="edit-modal" id="deleteRecurringModal" onclick="closeDeleteRecurringModal(event)">
+        <div class="edit-modal-content" onclick="event.stopPropagation()">
+            <div class="edit-modal-header">
+                <h3 class="edit-modal-title">🗑️ ลบงานทำซ้ำ</h3>
+                <button class="close-btn" onclick="closeDeleteRecurringModal()">✕</button>
+            </div>
+            <div style="color: var(--text-secondary); margin-bottom: 18px;">
+                ต้องการลบแค่วันนี้ หรือ ลบทั้งชุดงานที่ทำซ้ำ?
+            </div>
+            <div class="edit-modal-actions">
+                <button class="btn" onclick="confirmDeleteRecurring('single')" style="background: var(--warning); color: white; flex: 1;">
+                    🗓️ ลบวันเดียว
+                </button>
+                <button class="btn" onclick="confirmDeleteRecurring('series')" style="background: var(--danger); color: white; flex: 1;">
+                    🔄 ลบทั้งงานที่ซ้ำ
+                </button>
+                <button class="btn btn-secondary" onclick="closeDeleteRecurringModal()">
+                    ✕ ยกเลิก
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="edit-modal" id="adminAssignTodoModal" onclick="closeAdminAssignTodoModal(event)">
+        <div class="edit-modal-content" onclick="event.stopPropagation()">
+            <div class="edit-modal-header">
+                <h3 class="edit-modal-title">👥 ป้อนงานให้ User</h3>
+                <button class="close-btn" onclick="closeAdminAssignTodoModal()">✕</button>
+            </div>
+
+            <div class="edit-form-group">
+                <label class="edit-form-label">เลือก User</label>
+                <div style="display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                    <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                        เลือกได้หลายคน
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary" onclick="adminAssignSelectAllUsers()" style="padding: 6px 10px;">เลือกทั้งหมด</button>
+                        <button class="btn btn-secondary" onclick="adminAssignClearAllUsers()" style="padding: 6px 10px;">ล้าง</button>
+                    </div>
+                </div>
+                <div class="branch-grid" id="adminAssignUserGrid"></div>
+            </div>
+
+            <div class="edit-form-group">
+                <label class="edit-form-label">ชื่องาน</label>
+                <input type="text" id="adminAssignText" class="edit-form-input" placeholder="ใส่งานที่ต้องทำ...">
+            </div>
+
+            <div class="edit-form-row">
+                <div class="edit-form-group">
+                    <label class="edit-form-label">ความสำคัญ</label>
+                    <select id="adminAssignPriority" class="edit-form-select">
+                        <option value="high">🔴 สำคัญมาก</option>
+                        <option value="medium" selected>🟡 ปานกลาง</option>
+                        <option value="low">🟢 สำคัญน้อย</option>
+                    </select>
+                </div>
+                <div class="edit-form-group">
+                    <label class="edit-form-label">หมวดหมู่</label>
+                    <select id="adminAssignCategory" class="edit-form-select"></select>
+                </div>
+            </div>
+
+            <div class="edit-form-group">
+                <label class="edit-form-label">วันที่</label>
+                <input type="date" id="adminAssignDate" class="edit-form-input">
+            </div>
+
+            <div class="edit-form-group">
+                <label class="edit-form-label">ช่วงเวลา</label>
+                <div class="edit-form-time-group">
+                    <div>
+                        <label class="edit-form-label" style="font-size: 0.8rem; margin-bottom: 4px;">เริ่ม</label>
+                        <input type="time" id="adminAssignTimeStart" class="edit-form-input">
+                    </div>
+                    <div>
+                        <label class="edit-form-label" style="font-size: 0.8rem; margin-bottom: 4px;">สิ้นสุด</label>
+                        <input type="time" id="adminAssignTimeEnd" class="edit-form-input">
+                    </div>
+                </div>
+            </div>
+
+            <div class="edit-form-group">
+                <label class="edit-form-label">🏢 สาขา (เลือกได้หลายสาขา)</label>
+                <div class="branch-grid" id="adminAssignBranchGrid"></div>
+            </div>
+
+            <div class="recurring-toggle" onclick="toggleAdminAssignRecurringOptions()">
+                <input type="checkbox" id="adminAssignRecurringCheckbox" onclick="event.stopPropagation()">
+                <label for="adminAssignRecurringCheckbox">🔄 งานที่ทำซ้ำ (Recurring Task)</label>
+            </div>
+
+            <div class="recurring-options" id="adminAssignRecurringOptions">
+                <div class="recurring-config">
+                    <div class="recurring-field">
+                        <label>รูปแบบการทำซ้ำ</label>
+                        <select id="adminAssignRecurringType" onchange="updateAdminAssignRecurringConfig()">
+                            <option value="daily">ทุกวัน</option>
+                            <option value="weekly">เลือกวันในสัปดาห์</option>
+                            <option value="monthly">ทุกเดือน</option>
+                            <option value="weekdays">วันจันทร์-ศุกร์</option>
+                            <option value="weekends">วันเสาร์-อาทิตย์</option>
+                            <option value="custom">กำหนดเอง</option>
+                        </select>
+                    </div>
+
+                    <div class="recurring-field" id="adminAssignIntervalField">
+                        <label>ทำซ้ำทุกกี่วัน/สัปดาห์/เดือน</label>
+                        <input type="number" id="adminAssignRecurringInterval" value="1" min="1" max="365" onchange="updateAdminAssignRecurringPreview()">
+                    </div>
+
+                    <div class="recurring-field" id="adminAssignMonthlyDayField">
+                        <label>วันที่ของเดือน</label>
+                        <select id="adminAssignRecurringMonthlyDay" onchange="updateAdminAssignRecurringPreview()">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                            <option value="12">12</option>
+                            <option value="13">13</option>
+                            <option value="14">14</option>
+                            <option value="15">15</option>
+                            <option value="16">16</option>
+                            <option value="17">17</option>
+                            <option value="18">18</option>
+                            <option value="19">19</option>
+                            <option value="20">20</option>
+                            <option value="21">21</option>
+                            <option value="22">22</option>
+                            <option value="23">23</option>
+                            <option value="24">24</option>
+                            <option value="25">25</option>
+                            <option value="26">26</option>
+                            <option value="27">27</option>
+                            <option value="28">28</option>
+                            <option value="29">29</option>
+                            <option value="30">30</option>
+                            <option value="31">31</option>
+                            <option value="last">สิ้นเดือน</option>
+                        </select>
+                    </div>
+
+                    <div class="recurring-field" style="grid-column: 1 / -1;" id="adminAssignWeekdayField">
+                        <label>เลือกวัน</label>
+                        <div class="weekday-selector">
+                            <button type="button" class="add-weekday-btn" data-day="0" onclick="toggleAdminAssignWeekday(0)">อา</button>
+                            <button type="button" class="add-weekday-btn" data-day="1" onclick="toggleAdminAssignWeekday(1)">จ</button>
+                            <button type="button" class="add-weekday-btn" data-day="2" onclick="toggleAdminAssignWeekday(2)">อ</button>
+                            <button type="button" class="add-weekday-btn" data-day="3" onclick="toggleAdminAssignWeekday(3)">พ</button>
+                            <button type="button" class="add-weekday-btn" data-day="4" onclick="toggleAdminAssignWeekday(4)">พฤ</button>
+                            <button type="button" class="add-weekday-btn" data-day="5" onclick="toggleAdminAssignWeekday(5)">ศ</button>
+                            <button type="button" class="add-weekday-btn" data-day="6" onclick="toggleAdminAssignWeekday(6)">ส</button>
+                        </div>
+                    </div>
+
+                    <div class="recurring-field">
+                        <label>เริ่มต้นจาก</label>
+                        <input type="date" id="adminAssignRecurringStartDate">
+                    </div>
+
+                    <div class="recurring-field">
+                        <label>สิ้นสุด (ไม่บังคับ)</label>
+                        <input type="date" id="adminAssignRecurringEndDate">
+                    </div>
+                </div>
+
+                <div class="recurring-preview">
+                    <div class="recurring-preview-title">📋 ตัวอย่าง:</div>
+                    <div id="adminAssignRecurringPreviewText">งานนี้จะทำซ้ำทุกวัน</div>
+                </div>
+            </div>
+
+            <div class="edit-modal-actions">
+                <button class="btn btn-primary" onclick="saveAdminAssignedTodo()" style="flex: 1;">
+                    ➕ เพิ่มงานให้ User
+                </button>
+                <button class="btn btn-secondary" onclick="closeAdminAssignTodoModal()">
                     ✕ ยกเลิก
                 </button>
             </div>
@@ -1258,7 +1582,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
-    <script src="firebase-config.js?v=20260203-11"></script>
-    <script src="script.js?v=20260203-11"></script>
+    <script src="firebase-config.js?v=20260203-15"></script>
+    <script src="script.js?v=20260203-15"></script>
 </body>
 </html>

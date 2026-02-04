@@ -286,6 +286,11 @@
                 branchFilter.style.display = admin ? '' : 'none';
             }
 
+            const adminAssignBtn = document.getElementById('adminAssignTodoBtn');
+            if (adminAssignBtn) {
+                adminAssignBtn.style.display = admin ? 'inline-flex' : 'none';
+            }
+
             const branchVisitSection = document.getElementById('branchVisitSection');
             if (branchVisitSection) {
                 // Force display block for everyone (User and Admin)
@@ -360,21 +365,9 @@
 
         async function loadUserData() {
             if (!currentUser) return;
-            
+
             const getItem = async (key) => {
-                if (window.FirestoreAdapter) {
-                    try {
-                        const val = await FirestoreAdapter.getItem(key);
-                        if (val !== null && val !== undefined) return val;
-                    } catch (e) {
-                        console.error('Firestore error', e);
-                    }
-                }
-                try {
-                    return JSON.parse(localStorage.getItem(key));
-                } catch {
-                    return null;
-                }
+                return await getAppItem(key);
             };
 
             if (currentUser.role === 'admin' && viewingUser === 'all') {
@@ -447,6 +440,27 @@
                     v.timeOut = v.timeOut || '';
                     delete v.time;
                 });
+            }
+        }
+
+        async function getAppItem(key) {
+            if (window.FirestoreAdapter) {
+                try {
+                    const val = await FirestoreAdapter.getItem(key);
+                    if (val !== null && val !== undefined) return val;
+                } catch (e) {}
+            }
+            try {
+                return JSON.parse(localStorage.getItem(key));
+            } catch {
+                return null;
+            }
+        }
+
+        async function setAppItem(key, value) {
+            localStorage.setItem(key, JSON.stringify(value));
+            if (window.FirestoreAdapter) {
+                await FirestoreAdapter.setItem(key, value);
             }
         }
 
@@ -2239,6 +2253,17 @@
                 showToast('ไม่มีสิทธิ์จัดการงาน', 'error');
                 return;
             }
+            const todo = todos.find(t => t.id === id);
+            if (!todo) return;
+
+            const isRecurringParent = !!(todo.recurring && !todo.parentId);
+            const isRecurringInstance = !!todo.parentId;
+
+            if (isRecurringParent || isRecurringInstance) {
+                openDeleteRecurringModal(id);
+                return;
+            }
+
             if (confirm('ต้องการลบงานนี้?')) {
                 todos = todos.filter(t => t.id !== id);
                 saveTodos();
@@ -2248,6 +2273,7 @@
 
         // Add Todo Modal Functions
         let addSelectedBranches = [];
+        let addTodoSelectedWeekdays = [];
 
         function openAddTodoModal() {
             if (!canManageTodosNow()) {
@@ -2261,6 +2287,26 @@
             document.getElementById('addTodoTimeStart').value = '';
             document.getElementById('addTodoTimeEnd').value = '';
             addSelectedBranches = [];
+
+            const recurringCheckbox = document.getElementById('addTodoRecurringCheckbox');
+            const recurringOptions = document.getElementById('addTodoRecurringOptions');
+            if (recurringCheckbox && recurringOptions) {
+                recurringCheckbox.checked = false;
+                recurringOptions.classList.remove('show');
+            }
+
+            addTodoSelectedWeekdays = [];
+            document.querySelectorAll('.add-weekday-btn').forEach(btn => btn.classList.remove('selected'));
+
+            const addRecurringStart = document.getElementById('addTodoRecurringStartDate');
+            const addRecurringEnd = document.getElementById('addTodoRecurringEndDate');
+            const addRecurringType = document.getElementById('addTodoRecurringType');
+            const addRecurringInterval = document.getElementById('addTodoRecurringInterval');
+            if (addRecurringStart) addRecurringStart.value = document.getElementById('addTodoDate').value;
+            if (addRecurringEnd) addRecurringEnd.value = '';
+            if (addRecurringType) addRecurringType.value = 'daily';
+            if (addRecurringInterval) addRecurringInterval.value = 1;
+            updateAddTodoRecurringConfig();
 
             const addCreatorGroup = document.getElementById('addTodoCreatorGroup');
             const addCreatorSelect = document.getElementById('addTodoCreatedBy');
@@ -2340,6 +2386,140 @@
             document.getElementById('addTodoModal').classList.add('active');
         }
 
+        function toggleAddTodoRecurringOptions() {
+            const checkbox = document.getElementById('addTodoRecurringCheckbox');
+            const options = document.getElementById('addTodoRecurringOptions');
+            if (!checkbox || !options) return;
+
+            checkbox.checked = !checkbox.checked;
+            if (checkbox.checked) {
+                options.classList.add('show');
+                const startEl = document.getElementById('addTodoRecurringStartDate');
+                const dueDate = document.getElementById('addTodoDate');
+                if (startEl && dueDate && dueDate.value) startEl.value = dueDate.value;
+                updateAddTodoRecurringConfig();
+            } else {
+                options.classList.remove('show');
+            }
+        }
+
+        function updateAddTodoRecurringConfig() {
+            const typeEl = document.getElementById('addTodoRecurringType');
+            const weekdayField = document.getElementById('addTodoWeekdayField');
+            const intervalField = document.getElementById('addTodoIntervalField');
+            const monthlyDayField = document.getElementById('addTodoMonthlyDayField');
+            if (!typeEl || !weekdayField || !intervalField) return;
+
+            const type = typeEl.value;
+
+            addTodoSelectedWeekdays = [];
+            document.querySelectorAll('.add-weekday-btn').forEach(btn => btn.classList.remove('selected'));
+
+            if (type === 'custom') {
+                weekdayField.style.display = 'block';
+                intervalField.style.display = 'block';
+                if (monthlyDayField) monthlyDayField.style.display = 'none';
+            } else if (type === 'weekly') {
+                weekdayField.style.display = 'block';
+                intervalField.style.display = 'block';
+                if (monthlyDayField) monthlyDayField.style.display = 'none';
+            } else if (type === 'monthly') {
+                weekdayField.style.display = 'none';
+                intervalField.style.display = 'block';
+                if (monthlyDayField) {
+                    monthlyDayField.style.display = 'block';
+                    const startEl = document.getElementById('addTodoRecurringStartDate');
+                    const startDate = parseDateKeyLocal(startEl ? startEl.value : '');
+                    const day = startDate ? String(startDate.getDate()) : '1';
+                    const daySelect = document.getElementById('addTodoRecurringMonthlyDay');
+                    if (daySelect) daySelect.value = day;
+                }
+            } else if (type === 'weekdays') {
+                weekdayField.style.display = 'none';
+                intervalField.style.display = 'none';
+                if (monthlyDayField) monthlyDayField.style.display = 'none';
+                addTodoSelectedWeekdays = [1, 2, 3, 4, 5];
+            } else if (type === 'weekends') {
+                weekdayField.style.display = 'none';
+                intervalField.style.display = 'none';
+                if (monthlyDayField) monthlyDayField.style.display = 'none';
+                addTodoSelectedWeekdays = [0, 6];
+            } else {
+                weekdayField.style.display = 'none';
+                intervalField.style.display = 'block';
+                if (monthlyDayField) monthlyDayField.style.display = 'none';
+            }
+
+            updateAddTodoRecurringPreview();
+        }
+
+        function toggleAddTodoWeekday(day) {
+            const index = addTodoSelectedWeekdays.indexOf(day);
+            const btn = document.querySelector(`.add-weekday-btn[data-day="${day}"]`);
+            if (!btn) return;
+
+            if (index > -1) {
+                addTodoSelectedWeekdays.splice(index, 1);
+                btn.classList.remove('selected');
+            } else {
+                addTodoSelectedWeekdays.push(day);
+                btn.classList.add('selected');
+            }
+            updateAddTodoRecurringPreview();
+        }
+
+        function updateAddTodoRecurringPreview() {
+            const typeEl = document.getElementById('addTodoRecurringType');
+            const intervalEl = document.getElementById('addTodoRecurringInterval');
+            const previewText = document.getElementById('addTodoRecurringPreviewText');
+            if (!typeEl || !intervalEl || !previewText) return;
+
+            const type = typeEl.value;
+            const interval = parseInt(intervalEl.value) || 1;
+            const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+
+            let text = '';
+            switch(type) {
+                case 'daily':
+                    text = interval === 1 ? 'งานนี้จะทำซ้ำทุกวัน' : `งานนี้จะทำซ้ำทุก ${interval} วัน`;
+                    break;
+                case 'weekly':
+                    if (addTodoSelectedWeekdays.length > 0) {
+                        const days = [...addTodoSelectedWeekdays].sort().map(d => dayNames[d]).join(', ');
+                        text = interval === 1 ?
+                            `งานนี้จะทำซ้ำทุกสัปดาห์ในวัน: ${days}` :
+                            `งานนี้จะทำซ้ำทุก ${interval} สัปดาห์ในวัน: ${days}`;
+                    } else {
+                        text = 'กรุณาเลือกวันที่ต้องการ';
+                    }
+                    break;
+                case 'monthly':
+                    {
+                        const md = document.getElementById('addTodoRecurringMonthlyDay');
+                        const v = md ? md.value : '';
+                        const dayText = v === 'last' ? 'สิ้นเดือน' : `วันที่ ${v || '1'}`;
+                        text = interval === 1 ? `งานนี้จะทำซ้ำทุกเดือน (${dayText})` : `งานนี้จะทำซ้ำทุก ${interval} เดือน (${dayText})`;
+                    }
+                    break;
+                case 'weekdays':
+                    text = 'งานนี้จะทำซ้ำทุกวันจันทร์-ศุกร์';
+                    break;
+                case 'weekends':
+                    text = 'งานนี้จะทำซ้ำทุกวันเสาร์-อาทิตย์';
+                    break;
+                case 'custom':
+                    if (addTodoSelectedWeekdays.length > 0) {
+                        const days = [...addTodoSelectedWeekdays].sort().map(d => dayNames[d]).join(', ');
+                        text = `งานนี้จะทำซ้ำในวัน: ${days}`;
+                    } else {
+                        text = 'กรุณาเลือกวันที่ต้องการ';
+                    }
+                    break;
+            }
+
+            previewText.textContent = text;
+        }
+
         function toggleAddBranch(branchCode) {
             event.stopPropagation();
             const checkbox = document.getElementById(`add-branch-${branchCode}`);
@@ -2374,27 +2554,102 @@
             const timeStart = document.getElementById('addTodoTimeStart').value;
             const timeEnd = document.getElementById('addTodoTimeEnd').value;
 
-            const todo = {
-                id: Date.now(),
+            const createdBy = (() => {
+                if (currentUser && currentUser.role === 'admin') {
+                    const select = document.getElementById('addTodoCreatedBy');
+                    return select && select.value ? select.value : currentUser.username;
+                }
+                return currentUser ? currentUser.username : '';
+            })();
+
+            const recurringEnabled = !!(document.getElementById('addTodoRecurringCheckbox') && document.getElementById('addTodoRecurringCheckbox').checked);
+
+            const baseTask = {
                 text: text,
-                completed: false,
                 priority: priority,
                 category: category,
-                dueDate: dueDate || null,
                 timeStart: timeStart || null,
                 timeEnd: timeEnd || null,
                 branches: [...addSelectedBranches],
-                createdBy: (() => {
-                    if (currentUser && currentUser.role === 'admin') {
-                        const select = document.getElementById('addTodoCreatedBy');
-                        return select && select.value ? select.value : currentUser.username;
-                    }
-                    return currentUser ? currentUser.username : '';
-                })(),
+                createdBy,
                 createdAt: new Date().toISOString()
             };
 
-            todos.unshift(todo);
+            if (recurringEnabled) {
+                const typeEl = document.getElementById('addTodoRecurringType');
+                const intervalEl = document.getElementById('addTodoRecurringInterval');
+                const startEl = document.getElementById('addTodoRecurringStartDate');
+                const endEl = document.getElementById('addTodoRecurringEndDate');
+                const type = typeEl ? typeEl.value : 'daily';
+                const interval = intervalEl ? (parseInt(intervalEl.value) || 1) : 1;
+                const startDateStr = dueDate || (startEl && startEl.value) || getTodayDateString();
+                const endDateStrRaw = endEl ? endEl.value : '';
+
+                if ((type === 'weekly' || type === 'custom') && (!Array.isArray(addTodoSelectedWeekdays) || addTodoSelectedWeekdays.length === 0)) {
+                    showToast('กรุณาเลือกวันที่ต้องการทำซ้ำ', 'error');
+                    return;
+                }
+
+                const startDate = parseDateKeyLocal(startDateStr);
+                if (!startDate) {
+                    showToast('กรุณาเลือกวันที่เริ่มต้นที่ถูกต้อง', 'error');
+                    return;
+                }
+
+                const recurring = {
+                    type,
+                    interval,
+                    startDate: startDateStr,
+                    endDate: endDateStrRaw || null,
+                    monthlyDay: type === 'monthly' ? (document.getElementById('addTodoRecurringMonthlyDay') ? document.getElementById('addTodoRecurringMonthlyDay').value : undefined) : undefined,
+                    weekdays: (type === 'weekly' || type === 'custom') ? [...addTodoSelectedWeekdays].sort() : undefined,
+                    lastGenerated: null
+                };
+
+                const parentId = Date.now() + Math.random();
+                const parent = {
+                    id: parentId,
+                    ...baseTask,
+                    dueDate: null,
+                    completed: false,
+                    recurring
+                };
+                todos.unshift(parent);
+
+                const rangeEndStr = endDateStrRaw ? endDateStrRaw : toDateKey(new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + 30));
+                const endDate = parseDateKeyLocal(rangeEndStr);
+                if (!endDate) {
+                    showToast('กรุณาเลือกวันที่สิ้นสุดที่ถูกต้อง', 'error');
+                    return;
+                }
+
+                const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                const seenDates = new Set();
+                while (cursor <= endDate) {
+                    if (shouldGenerateForDate(cursor, recurring)) {
+                        const dateKey = toDateKey(cursor);
+                        if (!seenDates.has(dateKey)) {
+                            seenDates.add(dateKey);
+                            todos.unshift({
+                                id: Date.now() + Math.random(),
+                                ...baseTask,
+                                dueDate: dateKey,
+                                completed: false,
+                                parentId
+                            });
+                        }
+                    }
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+            } else {
+                todos.unshift({
+                    id: Date.now(),
+                    ...baseTask,
+                    dueDate: dueDate || null,
+                    completed: false
+                });
+            }
+
             saveTodos();
             refreshAllViews();
             
@@ -2406,6 +2661,488 @@
             if (!event || event.target.id === 'addTodoModal' || event.target.closest('.close-btn') || event.target.classList.contains('btn-secondary')) {
                 document.getElementById('addTodoModal').classList.remove('active');
             }
+        }
+
+        let pendingDeleteRecurringTodoId = null;
+
+        function openDeleteRecurringModal(todoId) {
+            pendingDeleteRecurringTodoId = todoId;
+            const modal = document.getElementById('deleteRecurringModal');
+            if (modal) modal.classList.add('active');
+        }
+
+        function closeDeleteRecurringModal(event) {
+            if (!event || event.target.id === 'deleteRecurringModal' || event.target.closest('.close-btn') || event.target.classList.contains('btn-secondary')) {
+                const modal = document.getElementById('deleteRecurringModal');
+                if (modal) modal.classList.remove('active');
+                pendingDeleteRecurringTodoId = null;
+            }
+        }
+
+        function confirmDeleteRecurring(mode) {
+            if (!pendingDeleteRecurringTodoId) return;
+            const todo = todos.find(t => t.id === pendingDeleteRecurringTodoId);
+            if (!todo) {
+                closeDeleteRecurringModal();
+                return;
+            }
+
+            const rootId = todo.parentId ? todo.parentId : todo.id;
+            if (mode === 'series') {
+                todos = todos.filter(t => t.id !== rootId && t.parentId !== rootId);
+                saveTodos();
+                refreshAllViews();
+                closeDeleteRecurringModal();
+                showToast('🗑️ ลบทั้งงานที่ซ้ำแล้ว');
+                return;
+            }
+
+            todos = todos.filter(t => t.id !== todo.id);
+            saveTodos();
+            refreshAllViews();
+            closeDeleteRecurringModal();
+            showToast('🗓️ ลบวันเดียวแล้ว');
+        }
+
+        let adminAssignSelectedBranches = [];
+        let adminAssignSelectedWeekdays = [];
+        let adminAssignSelectedUsers = [];
+
+        function openAdminAssignTodoModal() {
+            if (!isAdminUser()) {
+                showToast('เฉพาะแอดมินเท่านั้น', 'error');
+                return;
+            }
+
+            const modal = document.getElementById('adminAssignTodoModal');
+            const userGrid = document.getElementById('adminAssignUserGrid');
+            const textEl = document.getElementById('adminAssignText');
+            const categorySelect = document.getElementById('adminAssignCategory');
+            const dateEl = document.getElementById('adminAssignDate');
+            const timeStartEl = document.getElementById('adminAssignTimeStart');
+            const timeEndEl = document.getElementById('adminAssignTimeEnd');
+
+            if (textEl) textEl.value = '';
+            if (dateEl) dateEl.value = getTodayDateString();
+            if (timeStartEl) timeStartEl.value = '';
+            if (timeEndEl) timeEndEl.value = '';
+
+            adminAssignSelectedBranches = [];
+            adminAssignSelectedWeekdays = [];
+            adminAssignSelectedUsers = [];
+
+            const recurringCheckbox = document.getElementById('adminAssignRecurringCheckbox');
+            const recurringOptions = document.getElementById('adminAssignRecurringOptions');
+            if (recurringCheckbox && recurringOptions) {
+                recurringCheckbox.checked = false;
+                recurringOptions.classList.remove('show');
+            }
+            document.querySelectorAll('#adminAssignWeekdayField .add-weekday-btn').forEach(btn => btn.classList.remove('selected'));
+
+            const startEl = document.getElementById('adminAssignRecurringStartDate');
+            const endEl = document.getElementById('adminAssignRecurringEndDate');
+            const typeEl = document.getElementById('adminAssignRecurringType');
+            const intervalEl = document.getElementById('adminAssignRecurringInterval');
+            const mdEl = document.getElementById('adminAssignRecurringMonthlyDay');
+            if (startEl && dateEl) startEl.value = dateEl.value;
+            if (endEl) endEl.value = '';
+            if (typeEl) typeEl.value = 'daily';
+            if (intervalEl) intervalEl.value = 1;
+            if (mdEl) mdEl.value = '1';
+            updateAdminAssignRecurringConfig();
+
+            if (userGrid) {
+                userGrid.innerHTML = '';
+                const selectableUsers = users
+                    .filter(u => u.username !== 'admin')
+                    .filter(u => u.username !== (currentUser ? currentUser.username : ''));
+
+                if (selectableUsers.length === 0) {
+                    userGrid.innerHTML = `<div style="color: var(--text-secondary); padding: 8px 0;">ไม่พบผู้ใช้</div>`;
+                } else {
+                    selectableUsers.forEach(u => {
+                        const option = document.createElement('div');
+                        option.className = 'branch-option';
+                        option.onclick = () => toggleAdminAssignUser(u.username);
+                        option.innerHTML = `
+                            <input type="checkbox" id="admin-assign-user-${u.username}" value="${u.username}">
+                            <label for="admin-assign-user-${u.username}">👤 ${getUserDisplayName(u.username)}</label>
+                        `;
+                        userGrid.appendChild(option);
+                    });
+                }
+            }
+
+            if (categorySelect) {
+                categorySelect.innerHTML = '';
+
+                const defaultCategoryEdits = JSON.parse(localStorage.getItem('defaultCategoryEdits')) || {};
+                const hiddenCategories = JSON.parse(localStorage.getItem('hiddenCategories')) || [];
+
+                const defaultCategories = [
+                    { key: 'work', icon: '💼', name: 'งาน' },
+                    { key: 'personal', icon: '👤', name: 'ส่วนตัว' },
+                    { key: 'shopping', icon: '🛒', name: 'ช็อปปิ้ง' },
+                    { key: 'health', icon: '💪', name: 'สุขภาพ' },
+                    { key: 'study', icon: '📚', name: 'เรียน' }
+                ];
+
+                defaultCategories.forEach(cat => {
+                    if (hiddenCategories.includes(cat.key)) return;
+                    const option = document.createElement('option');
+                    option.value = cat.key;
+                    if (defaultCategoryEdits[cat.key]) option.textContent = `${defaultCategoryEdits[cat.key].icon} ${defaultCategoryEdits[cat.key].name}`;
+                    else option.textContent = `${cat.icon} ${cat.name}`;
+                    categorySelect.appendChild(option);
+                });
+
+                customCategories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat.key;
+                    option.textContent = `${cat.icon} ${cat.name}`;
+                    categorySelect.appendChild(option);
+                });
+            }
+
+            const grid = document.getElementById('adminAssignBranchGrid');
+            if (grid) {
+                grid.innerHTML = '';
+                const allBranches = [...defaultBranches, ...customBranches];
+                allBranches.forEach(branch => {
+                    const option = document.createElement('div');
+                    option.className = 'branch-option';
+                    option.onclick = () => toggleAdminAssignBranch(branch);
+                    option.innerHTML = `
+                        <input type="checkbox" id="admin-assign-branch-${branch}" value="${branch}">
+                        <label for="admin-assign-branch-${branch}">${branch}</label>
+                    `;
+                    grid.appendChild(option);
+                });
+            }
+
+            if (modal) modal.classList.add('active');
+        }
+
+        function closeAdminAssignTodoModal(event) {
+            if (!event || event.target.id === 'adminAssignTodoModal' || event.target.closest('.close-btn') || event.target.classList.contains('btn-secondary')) {
+                const modal = document.getElementById('adminAssignTodoModal');
+                if (modal) modal.classList.remove('active');
+            }
+        }
+
+        function toggleAdminAssignBranch(branchCode) {
+            const checkbox = document.getElementById(`admin-assign-branch-${branchCode}`);
+            if (!checkbox) return;
+            checkbox.checked = !checkbox.checked;
+            const option = checkbox.closest('.branch-option');
+            if (checkbox.checked) {
+                option.classList.add('selected');
+                if (!adminAssignSelectedBranches.includes(branchCode)) adminAssignSelectedBranches.push(branchCode);
+            } else {
+                option.classList.remove('selected');
+                adminAssignSelectedBranches = adminAssignSelectedBranches.filter(b => b !== branchCode);
+            }
+        }
+
+        function toggleAdminAssignUser(username) {
+            const checkbox = document.getElementById(`admin-assign-user-${username}`);
+            if (!checkbox) return;
+            checkbox.checked = !checkbox.checked;
+            const option = checkbox.closest('.branch-option');
+            if (checkbox.checked) {
+                option.classList.add('selected');
+                if (!adminAssignSelectedUsers.includes(username)) adminAssignSelectedUsers.push(username);
+            } else {
+                option.classList.remove('selected');
+                adminAssignSelectedUsers = adminAssignSelectedUsers.filter(u => u !== username);
+            }
+        }
+
+        function adminAssignSelectAllUsers() {
+            const userGrid = document.getElementById('adminAssignUserGrid');
+            if (!userGrid) return;
+            adminAssignSelectedUsers = [];
+            userGrid.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.checked = true;
+                const option = cb.closest('.branch-option');
+                if (option) option.classList.add('selected');
+                if (cb.value) adminAssignSelectedUsers.push(cb.value);
+            });
+        }
+
+        function adminAssignClearAllUsers() {
+            const userGrid = document.getElementById('adminAssignUserGrid');
+            if (!userGrid) return;
+            userGrid.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+                const option = cb.closest('.branch-option');
+                if (option) option.classList.remove('selected');
+            });
+            adminAssignSelectedUsers = [];
+        }
+
+        function toggleAdminAssignRecurringOptions() {
+            const checkbox = document.getElementById('adminAssignRecurringCheckbox');
+            const options = document.getElementById('adminAssignRecurringOptions');
+            if (!checkbox || !options) return;
+            checkbox.checked = !checkbox.checked;
+            if (checkbox.checked) {
+                options.classList.add('show');
+                const startEl = document.getElementById('adminAssignRecurringStartDate');
+                const dateEl = document.getElementById('adminAssignDate');
+                if (startEl && dateEl && dateEl.value) startEl.value = dateEl.value;
+                updateAdminAssignRecurringConfig();
+            } else {
+                options.classList.remove('show');
+            }
+        }
+
+        function updateAdminAssignRecurringConfig() {
+            const typeEl = document.getElementById('adminAssignRecurringType');
+            const weekdayField = document.getElementById('adminAssignWeekdayField');
+            const intervalField = document.getElementById('adminAssignIntervalField');
+            const monthlyDayField = document.getElementById('adminAssignMonthlyDayField');
+            if (!typeEl || !weekdayField || !intervalField) return;
+
+            const type = typeEl.value;
+
+            adminAssignSelectedWeekdays = [];
+            document.querySelectorAll('#adminAssignWeekdayField .add-weekday-btn').forEach(btn => btn.classList.remove('selected'));
+
+            if (type === 'custom') {
+                weekdayField.style.display = 'block';
+                intervalField.style.display = 'block';
+                if (monthlyDayField) monthlyDayField.style.display = 'none';
+            } else if (type === 'weekly') {
+                weekdayField.style.display = 'block';
+                intervalField.style.display = 'block';
+                if (monthlyDayField) monthlyDayField.style.display = 'none';
+            } else if (type === 'monthly') {
+                weekdayField.style.display = 'none';
+                intervalField.style.display = 'block';
+                if (monthlyDayField) {
+                    monthlyDayField.style.display = 'block';
+                    const startEl = document.getElementById('adminAssignRecurringStartDate');
+                    const startDate = parseDateKeyLocal(startEl ? startEl.value : '');
+                    const day = startDate ? String(startDate.getDate()) : '1';
+                    const daySelect = document.getElementById('adminAssignRecurringMonthlyDay');
+                    if (daySelect) daySelect.value = day;
+                }
+            } else if (type === 'weekdays') {
+                weekdayField.style.display = 'none';
+                intervalField.style.display = 'none';
+                if (monthlyDayField) monthlyDayField.style.display = 'none';
+                adminAssignSelectedWeekdays = [1, 2, 3, 4, 5];
+            } else if (type === 'weekends') {
+                weekdayField.style.display = 'none';
+                intervalField.style.display = 'none';
+                if (monthlyDayField) monthlyDayField.style.display = 'none';
+                adminAssignSelectedWeekdays = [0, 6];
+            } else {
+                weekdayField.style.display = 'none';
+                intervalField.style.display = 'block';
+                if (monthlyDayField) monthlyDayField.style.display = 'none';
+            }
+
+            updateAdminAssignRecurringPreview();
+        }
+
+        function toggleAdminAssignWeekday(day) {
+            const index = adminAssignSelectedWeekdays.indexOf(day);
+            const btn = document.querySelector(`#adminAssignWeekdayField .add-weekday-btn[data-day="${day}"]`);
+            if (!btn) return;
+            if (index > -1) {
+                adminAssignSelectedWeekdays.splice(index, 1);
+                btn.classList.remove('selected');
+            } else {
+                adminAssignSelectedWeekdays.push(day);
+                btn.classList.add('selected');
+            }
+            updateAdminAssignRecurringPreview();
+        }
+
+        function updateAdminAssignRecurringPreview() {
+            const typeEl = document.getElementById('adminAssignRecurringType');
+            const intervalEl = document.getElementById('adminAssignRecurringInterval');
+            const previewText = document.getElementById('adminAssignRecurringPreviewText');
+            if (!typeEl || !intervalEl || !previewText) return;
+            const type = typeEl.value;
+            const interval = parseInt(intervalEl.value) || 1;
+            const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+
+            let text = '';
+            switch(type) {
+                case 'daily':
+                    text = interval === 1 ? 'งานนี้จะทำซ้ำทุกวัน' : `งานนี้จะทำซ้ำทุก ${interval} วัน`;
+                    break;
+                case 'weekly':
+                    if (adminAssignSelectedWeekdays.length > 0) {
+                        const days = [...adminAssignSelectedWeekdays].sort().map(d => dayNames[d]).join(', ');
+                        text = interval === 1 ?
+                            `งานนี้จะทำซ้ำทุกสัปดาห์ในวัน: ${days}` :
+                            `งานนี้จะทำซ้ำทุก ${interval} สัปดาห์ในวัน: ${days}`;
+                    } else {
+                        text = 'กรุณาเลือกวันที่ต้องการ';
+                    }
+                    break;
+                case 'monthly':
+                    {
+                        const md = document.getElementById('adminAssignRecurringMonthlyDay');
+                        const v = md ? md.value : '';
+                        const dayText = v === 'last' ? 'สิ้นเดือน' : `วันที่ ${v || '1'}`;
+                        text = interval === 1 ? `งานนี้จะทำซ้ำทุกเดือน (${dayText})` : `งานนี้จะทำซ้ำทุก ${interval} เดือน (${dayText})`;
+                    }
+                    break;
+                case 'weekdays':
+                    text = 'งานนี้จะทำซ้ำทุกวันจันทร์-ศุกร์';
+                    break;
+                case 'weekends':
+                    text = 'งานนี้จะทำซ้ำทุกวันเสาร์-อาทิตย์';
+                    break;
+                case 'custom':
+                    if (adminAssignSelectedWeekdays.length > 0) {
+                        const days = [...adminAssignSelectedWeekdays].sort().map(d => dayNames[d]).join(', ');
+                        text = `งานนี้จะทำซ้ำในวัน: ${days}`;
+                    } else {
+                        text = 'กรุณาเลือกวันที่ต้องการ';
+                    }
+                    break;
+            }
+
+            previewText.textContent = text;
+        }
+
+        async function saveAdminAssignedTodo() {
+            if (!isAdminUser()) {
+                showToast('เฉพาะแอดมินเท่านั้น', 'error');
+                return;
+            }
+
+            const targetUsers = [...adminAssignSelectedUsers];
+            if (targetUsers.length === 0) {
+                showToast('กรุณาเลือก User อย่างน้อย 1 คน', 'error');
+                return;
+            }
+
+            const textEl = document.getElementById('adminAssignText');
+            const text = textEl ? textEl.value.trim() : '';
+            if (!text) {
+                showToast('กรุณาใส่ชื่องาน', 'error');
+                return;
+            }
+
+            const priority = document.getElementById('adminAssignPriority').value;
+            const category = document.getElementById('adminAssignCategory').value;
+            const dueDate = document.getElementById('adminAssignDate').value;
+            const timeStart = document.getElementById('adminAssignTimeStart').value;
+            const timeEnd = document.getElementById('adminAssignTimeEnd').value;
+
+            const recurringEnabled = !!(document.getElementById('adminAssignRecurringCheckbox') && document.getElementById('adminAssignRecurringCheckbox').checked);
+            const nowIso = new Date().toISOString();
+
+            const baseTask = {
+                text,
+                priority,
+                category,
+                timeStart: timeStart || null,
+                timeEnd: timeEnd || null,
+                branches: [...adminAssignSelectedBranches],
+                createdBy: currentUser ? currentUser.username : '',
+                createdAt: nowIso
+            };
+
+            const typeEl = document.getElementById('adminAssignRecurringType');
+            const intervalEl = document.getElementById('adminAssignRecurringInterval');
+            const startEl = document.getElementById('adminAssignRecurringStartDate');
+            const endEl = document.getElementById('adminAssignRecurringEndDate');
+            const mdEl = document.getElementById('adminAssignRecurringMonthlyDay');
+            const type = typeEl ? typeEl.value : 'daily';
+            const interval = intervalEl ? (parseInt(intervalEl.value) || 1) : 1;
+            const startDateStr = dueDate || (startEl && startEl.value) || getTodayDateString();
+            const endDateStrRaw = endEl ? endEl.value : '';
+
+            if (recurringEnabled && (type === 'weekly' || type === 'custom') && adminAssignSelectedWeekdays.length === 0) {
+                showToast('กรุณาเลือกวันที่ต้องการทำซ้ำ', 'error');
+                return;
+            }
+
+            const startDate = recurringEnabled ? parseDateKeyLocal(startDateStr) : null;
+            if (recurringEnabled && !startDate) {
+                showToast('กรุณาเลือกวันที่เริ่มต้นที่ถูกต้อง', 'error');
+                return;
+            }
+
+            for (const targetUser of targetUsers) {
+                const prefix = targetUser + '_';
+                const userTodos = (await getAppItem(prefix + 'todos')) || [];
+
+                if (recurringEnabled) {
+                    const recurring = {
+                        type,
+                        interval,
+                        startDate: startDateStr,
+                        endDate: endDateStrRaw || null,
+                        monthlyDay: type === 'monthly' ? (mdEl ? mdEl.value : undefined) : undefined,
+                        weekdays: (type === 'weekly' || type === 'custom') ? [...adminAssignSelectedWeekdays].sort() : undefined,
+                        lastGenerated: null
+                    };
+
+                    const parentId = Date.now() + Math.random();
+                    userTodos.unshift({
+                        id: parentId,
+                        ...baseTask,
+                        dueDate: null,
+                        completed: false,
+                        recurring
+                    });
+
+                    const rangeEndStr = endDateStrRaw ? endDateStrRaw : toDateKey(new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + 30));
+                    const endDate = parseDateKeyLocal(rangeEndStr);
+                    if (!endDate) {
+                        showToast('กรุณาเลือกวันที่สิ้นสุดที่ถูกต้อง', 'error');
+                        return;
+                    }
+
+                    const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                    const seenDates = new Set();
+                    while (cursor <= endDate) {
+                        if (shouldGenerateForDate(cursor, recurring)) {
+                            const dateKey = toDateKey(cursor);
+                            if (!seenDates.has(dateKey)) {
+                                seenDates.add(dateKey);
+                                userTodos.unshift({
+                                    id: Date.now() + Math.random(),
+                                    ...baseTask,
+                                    dueDate: dateKey,
+                                    completed: false,
+                                    parentId
+                                });
+                            }
+                        }
+                        cursor.setDate(cursor.getDate() + 1);
+                    }
+                } else {
+                    userTodos.unshift({
+                        id: Date.now() + Math.random(),
+                        ...baseTask,
+                        dueDate: dueDate || null,
+                        completed: false
+                    });
+                }
+
+                await setAppItem(prefix + 'todos', userTodos);
+            }
+
+            if (currentUser && currentUser.role === 'admin') {
+                viewingUser = targetUsers.length === 1 ? targetUsers[0] : 'all';
+                await loadUserData();
+                refreshAllViews();
+                switchView('calendar');
+                todayMonth();
+            }
+
+            closeAdminAssignTodoModal();
+            showToast(`✅ เพิ่มงานให้ ${targetUsers.length} คน สำเร็จ!`);
         }
 
         // Edit Todo
@@ -3416,10 +4153,13 @@
                             return `
                                 <div class="calendar-task-item priority-${todo.priority} ${todo.completed ? 'completed' : ''}" 
                                      onclick="event.stopPropagation(); editTodo(${todo.id})">
-                                    ${todo.owner ? `<span style="font-size:0.7em; margin-right:2px; opacity:0.8;">(${getUserDisplayName(todo.owner)})</span>` : ''}
-                                    ${branch ? `<span class="calendar-task-branch">${branch}</span>` : ''}
-                                    ${time ? `<span class="calendar-task-time">${time}</span>` : ''}
-                                    <span>${icon}${taskText}</span>
+                                    <div class="calendar-task-main">
+                                        ${todo.owner ? `<span style="font-size:0.7em; margin-right:2px; opacity:0.8;">(${getUserDisplayName(todo.owner)})</span>` : ''}
+                                        ${branch ? `<span class="calendar-task-branch">${branch}</span>` : ''}
+                                        ${time ? `<span class="calendar-task-time">${time}</span>` : ''}
+                                        <span class="calendar-task-text">${icon}${taskText}</span>
+                                    </div>
+                                    <button class="calendar-task-delete" onclick="event.stopPropagation(); deleteTodo(${todo.id})" title="ลบ">🗑️</button>
                                 </div>
                             `;
                         }).join('');
@@ -4056,17 +4796,7 @@
         }
 
         function deleteTodoFromWeek(id) {
-            if (!canManageTodosNow()) {
-                showToast('ไม่มีสิทธิ์จัดการงาน', 'error');
-                return;
-            }
-            if (!confirm('ต้องการลบงานนี้?')) return;
-
-            todos = todos.filter(t => t.id !== id);
-            saveTodos();
-            refreshAllViews();
-
-            showToast('🗑️ ลบงานสำเร็จ');
+            deleteTodo(id);
         }
 
         // Debug Functions
@@ -4346,6 +5076,7 @@
                     interval,
                     startDate: startDateStr,
                     endDate: endDateStrRaw || null,
+                    monthlyDay: type === 'monthly' ? (document.getElementById('recurringMonthlyDay') ? document.getElementById('recurringMonthlyDay').value : undefined) : undefined,
                     weekdays: (type === 'weekly' || type === 'custom') ? [...selectedWeekdays].sort() : undefined,
                     lastGenerated: null
                 };
@@ -4420,6 +5151,7 @@
             const type = document.getElementById('recurringType').value;
             const weekdayField = document.getElementById('weekdayField');
             const intervalField = document.getElementById('intervalField');
+            const monthlyDayField = document.getElementById('monthlyDayField');
             
             // Reset weekday selection
             selectedWeekdays = [];
@@ -4428,20 +5160,36 @@
             if (type === 'custom') {
                 weekdayField.style.display = 'block';
                 intervalField.style.display = 'block';
+                if (monthlyDayField) monthlyDayField.style.display = 'none';
             } else if (type === 'weekly') {
                 weekdayField.style.display = 'block';
                 intervalField.style.display = 'block';
+                if (monthlyDayField) monthlyDayField.style.display = 'none';
+            } else if (type === 'monthly') {
+                weekdayField.style.display = 'none';
+                intervalField.style.display = 'block';
+                if (monthlyDayField) {
+                    monthlyDayField.style.display = 'block';
+                    const startEl = document.getElementById('recurringStartDate');
+                    const startDate = parseDateKeyLocal(startEl ? startEl.value : '');
+                    const day = startDate ? String(startDate.getDate()) : '1';
+                    const daySelect = document.getElementById('recurringMonthlyDay');
+                    if (daySelect) daySelect.value = day;
+                }
             } else if (type === 'weekdays') {
                 weekdayField.style.display = 'none';
                 intervalField.style.display = 'none';
+                if (monthlyDayField) monthlyDayField.style.display = 'none';
                 selectedWeekdays = [1, 2, 3, 4, 5]; // Mon-Fri
             } else if (type === 'weekends') {
                 weekdayField.style.display = 'none';
                 intervalField.style.display = 'none';
+                if (monthlyDayField) monthlyDayField.style.display = 'none';
                 selectedWeekdays = [0, 6]; // Sun, Sat
             } else {
                 weekdayField.style.display = 'none';
                 intervalField.style.display = 'block';
+                if (monthlyDayField) monthlyDayField.style.display = 'none';
             }
             
             updateRecurringPreview();
@@ -4485,7 +5233,12 @@
                     }
                     break;
                 case 'monthly':
-                    text = interval === 1 ? 'งานนี้จะทำซ้ำทุกเดือน' : `งานนี้จะทำซ้ำทุก ${interval} เดือน`;
+                    {
+                        const md = document.getElementById('recurringMonthlyDay');
+                        const v = md ? md.value : '';
+                        const dayText = v === 'last' ? 'สิ้นเดือน' : `วันที่ ${v || '1'}`;
+                        text = interval === 1 ? `งานนี้จะทำซ้ำทุกเดือน (${dayText})` : `งานนี้จะทำซ้ำทุก ${interval} เดือน (${dayText})`;
+                    }
                     break;
                 case 'weekdays':
                     text = 'งานนี้จะทำซ้ำทุกวันจันทร์-ศุกร์';
@@ -4518,6 +5271,8 @@
                 case 'weekly':
                     return interval === 1 ? 'ทุกสัปดาห์' : `ทุก ${interval} สัปดาห์`;
                 case 'monthly':
+                    if (recurring.monthlyDay === 'last') return interval === 1 ? 'สิ้นเดือน' : `ทุก ${interval} เดือน (สิ้นเดือน)`;
+                    if (recurring.monthlyDay) return interval === 1 ? `ทุกเดือน (${recurring.monthlyDay})` : `ทุก ${interval} เดือน (${recurring.monthlyDay})`;
                     return interval === 1 ? 'ทุกเดือน' : `ทุก ${interval} เดือน`;
                 case 'weekdays':
                     return 'จ-ศ';
@@ -4598,11 +5353,28 @@
                     
                 case 'weekly':
                     if (!config.weekdays || config.weekdays.length === 0) return false;
-                    return config.weekdays.includes(dayOfWeek);
+                    {
+                        const startDate = parseDateKeyLocal(config.startDate);
+                        if (!startDate) return false;
+                        const daysDiff = Math.floor((date - startDate) / (1000 * 60 * 60 * 24));
+                        const weeksDiff = Math.floor(daysDiff / 7);
+                        if (weeksDiff % (config.interval || 1) !== 0) return false;
+                        return config.weekdays.includes(dayOfWeek);
+                    }
                     
                 case 'monthly':
-                    const startDay = (parseDateKeyLocal(config.startDate) || date).getDate();
-                    return date.getDate() === startDay;
+                    {
+                        const startDate = parseDateKeyLocal(config.startDate);
+                        if (!startDate) return false;
+                        const monthsDiff = (date.getFullYear() - startDate.getFullYear()) * 12 + (date.getMonth() - startDate.getMonth());
+                        if (monthsDiff % (config.interval || 1) !== 0) return false;
+                        const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+                        const md = config.monthlyDay;
+                        if (md === 'last') return date.getDate() === lastDay;
+                        const numericDay = md ? parseInt(md) : startDate.getDate();
+                        const targetDay = Math.min(Math.max(1, numericDay || startDate.getDate()), lastDay);
+                        return date.getDate() === targetDay;
+                    }
                     
                 case 'weekdays':
                     return dayOfWeek >= 1 && dayOfWeek <= 5;
@@ -4612,7 +5384,14 @@
                     
                 case 'custom':
                     if (!config.weekdays || config.weekdays.length === 0) return false;
-                    return config.weekdays.includes(dayOfWeek);
+                    {
+                        const startDate = parseDateKeyLocal(config.startDate);
+                        if (!startDate) return false;
+                        const daysDiff = Math.floor((date - startDate) / (1000 * 60 * 60 * 24));
+                        const weeksDiff = Math.floor(daysDiff / 7);
+                        if (weeksDiff % (config.interval || 1) !== 0) return false;
+                        return config.weekdays.includes(dayOfWeek);
+                    }
                     
                 default:
                     return false;
