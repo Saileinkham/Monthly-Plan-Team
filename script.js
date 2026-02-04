@@ -4159,7 +4159,6 @@
                                         ${time ? `<span class="calendar-task-time">${time}</span>` : ''}
                                         <span class="calendar-task-text">${icon}${taskText}</span>
                                     </div>
-                                    <button class="calendar-task-delete" onclick="event.stopPropagation(); deleteTodo(${todo.id})" title="ลบ">🗑️</button>
                                 </div>
                             `;
                         }).join('');
