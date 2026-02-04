@@ -530,6 +530,8 @@
 
         // Emoji Picker Functions
         let selectedBulkEmoji = '';
+        let bulkTasksCache = [];
+        let bulkSelectedIndexes = new Set();
         const commonEmojis = [
             '🔥', '⭐', '✨', '💪', '🎯', '📊', '📈', '📉', '💼', '🏢',
             '🏠', '🏃', '🚗', '✈️', '🎨', '🎬', '🎮', '📱', '💻', '⌨️',
@@ -915,13 +917,13 @@
 
         function renderDashboardSummary() {
             const now = new Date();
-            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+            const firstDay = toDateKey(new Date(now.getFullYear(), now.getMonth(), 1));
+            const lastDay = toDateKey(new Date(now.getFullYear(), now.getMonth() + 1, 0));
             
             const monthTodos = todos.filter(t => t.dueDate >= firstDay && t.dueDate <= lastDay);
             const completed = monthTodos.filter(t => t.completed).length;
             const pending = monthTodos.filter(t => !t.completed).length;
-            const overdue = monthTodos.filter(t => !t.completed && t.dueDate < now.toISOString().split('T')[0]).length;
+            const overdue = monthTodos.filter(t => !t.completed && t.dueDate < toDateKey(new Date())).length;
             
             document.getElementById('monthTotalTasks').textContent = monthTodos.length;
             document.getElementById('monthCompletedTasks').textContent = completed;
@@ -1221,10 +1223,23 @@
             return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
         }
 
+        function toDateKey(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function parseDateKeyLocal(dateStr) {
+            if (!dateStr || typeof dateStr !== 'string') return null;
+            const [y, m, d] = dateStr.split('-').map(Number);
+            if (!y || !m || !d) return null;
+            return new Date(y, m - 1, d);
+        }
+
         // Branch Visit Functions
         function getTodayDateString() {
-            const now = new Date();
-            return now.toISOString().split('T')[0];
+            return toDateKey(new Date());
         }
 
         function getNowTimeString() {
@@ -2045,7 +2060,7 @@
             
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const todayStr = today.toISOString().split('T')[0];
+            const todayStr = toDateKey(today);
             
             let filtered = [...todos];
             
@@ -2057,7 +2072,7 @@
                 case 'upcoming':
                     const fiveDaysLater = new Date(today);
                     fiveDaysLater.setDate(fiveDaysLater.getDate() + 5);
-                    const fiveDaysLaterStr = fiveDaysLater.toISOString().split('T')[0];
+                    const fiveDaysLaterStr = toDateKey(fiveDaysLater);
                     filtered = filtered.filter(t => t.dueDate > todayStr && t.dueDate <= fiveDaysLaterStr);
                     break;
                     
@@ -2127,10 +2142,10 @@
         function updateSidebarCounts() {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const todayStr = today.toISOString().split('T')[0];
+            const todayStr = toDateKey(today);
             const weekLater = new Date(today);
             weekLater.setDate(weekLater.getDate() + 7);
-            const weekLaterStr = weekLater.toISOString().split('T')[0];
+            const weekLaterStr = toDateKey(weekLater);
             
             // Total
             document.getElementById('sidebarTotalTodos').textContent = todos.filter(t => !t.completed).length;
@@ -2242,7 +2257,7 @@
             // Reset form
             document.getElementById('addTodoText').value = '';
             document.getElementById('addTodoPriority').value = 'medium';
-            document.getElementById('addTodoDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('addTodoDate').value = getTodayDateString();
             document.getElementById('addTodoTimeStart').value = '';
             document.getElementById('addTodoTimeEnd').value = '';
             addSelectedBranches = [];
@@ -2936,7 +2951,7 @@
             XLSX.utils.book_append_sheet(wb, summaryWs, 'สรุป');
 
             // Save file
-            const fileName = `ตารางงานคุณชายโดม_${new Date().toISOString().split('T')[0]}.xlsx`;
+            const fileName = `ตารางงานคุณชายโดม_${getTodayDateString()}.xlsx`;
             XLSX.writeFile(wb, fileName);
 
             toggleExportMenu();
@@ -2966,7 +2981,7 @@
             const url = URL.createObjectURL(blob);
             
             link.setAttribute('href', url);
-            link.setAttribute('download', `ตารางงานคุณชายโดม_${new Date().toISOString().split('T')[0]}.csv`);
+            link.setAttribute('download', `ตารางงานคุณชายโดม_${getTodayDateString()}.csv`);
             link.click();
 
             toggleExportMenu();
@@ -2979,7 +2994,7 @@
             const url = URL.createObjectURL(dataBlob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `ตารางงานคุณชายโดม_${new Date().toISOString().split('T')[0]}.json`;
+            link.download = `ตารางงานคุณชายโดม_${getTodayDateString()}.json`;
             link.click();
 
             toggleExportMenu();
@@ -3046,7 +3061,7 @@
                             // Try to parse string date
                             const parsedDate = new Date(dueDate);
                             if (!isNaN(parsedDate)) {
-                                dueDate = parsedDate.toISOString().split('T')[0];
+                                dueDate = toDateKey(parsedDate);
                             }
                         }
 
@@ -3190,8 +3205,8 @@
             document.getElementById('calendarMonth').textContent = `${monthNames[month]} ${year + 543}`;
 
             // Calculate month stats
-            const firstDayOfMonth = new Date(year, month, 1).toISOString().split('T')[0];
-            const lastDayOfMonth = new Date(year, month + 1, 0).toISOString().split('T')[0];
+            const firstDayOfMonth = toDateKey(new Date(year, month, 1));
+            const lastDayOfMonth = toDateKey(new Date(year, month + 1, 0));
             
             const monthTodos = todos.filter(t => t.dueDate >= firstDayOfMonth && t.dueDate <= lastDayOfMonth);
             const monthCompleted = monthTodos.filter(t => t.completed).length;
@@ -3785,14 +3800,16 @@
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
+            const todayKey = toDateKey(today);
+            const tomorrowKey = toDateKey(tomorrow);
             
             let notifications = [];
 
             // Overdue tasks
             const overdue = todos.filter(t => {
                 if (!t.dueDate || t.completed) return false;
-                const dueDate = new Date(t.dueDate);
-                return dueDate < today;
+                const dueDate = parseDateKeyLocal(t.dueDate);
+                return dueDate ? dueDate < today : false;
             });
 
             overdue.forEach(todo => {
@@ -3807,7 +3824,7 @@
             // Today's tasks
             const todayTasks = todos.filter(t => {
                 if (!t.dueDate || t.completed) return false;
-                return t.dueDate === today.toISOString().split('T')[0];
+                return t.dueDate === todayKey;
             });
 
             todayTasks.forEach(todo => {
@@ -3822,7 +3839,7 @@
             // Tomorrow's tasks
             const tomorrowTasks = todos.filter(t => {
                 if (!t.dueDate || t.completed) return false;
-                return t.dueDate === tomorrow.toISOString().split('T')[0];
+                return t.dueDate === tomorrowKey;
             });
 
             tomorrowTasks.forEach(todo => {
@@ -4127,7 +4144,7 @@
             } else {
                 container.classList.add('show');
                 // Set default date to today
-                document.getElementById('bulkDefaultDate').value = new Date().toISOString().split('T')[0];
+                document.getElementById('bulkDefaultDate').value = getTodayDateString();
             }
         }
 
@@ -4184,8 +4201,14 @@
             previewList.innerHTML = '';
             
             const tasks = lines.map(line => parseBulkTask(line)).filter(t => t !== null);
+            bulkTasksCache = tasks;
             count.textContent = tasks.length;
-            addCount.textContent = tasks.length;
+
+            const needsReset = bulkSelectedIndexes.size === 0 || Array.from(bulkSelectedIndexes).some(i => i < 0 || i >= tasks.length);
+            if (needsReset) {
+                bulkSelectedIndexes = new Set(tasks.map((_, i) => i));
+            }
+            addCount.textContent = bulkSelectedIndexes.size;
 
             const categoryIcons = {
                 work: '💼',
@@ -4201,27 +4224,42 @@
                 low: '🟢'
             };
 
-            tasks.slice(0, 10).forEach(task => {
+            tasks.forEach((task, index) => {
                 const item = document.createElement('div');
                 item.className = 'bulk-preview-item';
+                item.style.cursor = 'pointer';
                 const timeDisplay = task.timeStart && task.timeEnd ? 
                     `⏰ ${task.timeStart}-${task.timeEnd}` : 
                     (task.timeStart ? `⏰ ${task.timeStart}` : '');
                 item.innerHTML = `
+                    <input type="checkbox" ${bulkSelectedIndexes.has(index) ? 'checked' : ''} onclick="event.stopPropagation(); toggleBulkSelect(${index}, this.checked)">
                     <span class="icon">${categoryIcons[task.category]}</span>
                     <span class="icon">${priorityColors[task.priority]}</span>
                     <span style="flex: 1;">${task.text}</span>
                     ${task.dueDate ? `<span style="font-size: 0.8rem; color: var(--text-secondary);">📅 ${formatDate(task.dueDate)}${timeDisplay ? ' ' + timeDisplay : ''}</span>` : ''}
                 `;
+                item.onclick = () => {
+                    const checked = !bulkSelectedIndexes.has(index);
+                    toggleBulkSelect(index, checked);
+                };
                 previewList.appendChild(item);
             });
+        }
 
-            if (tasks.length > 10) {
-                const more = document.createElement('div');
-                more.className = 'bulk-preview-item';
-                more.innerHTML = `<span style="color: var(--text-secondary);">... และอีก ${tasks.length - 10} งาน</span>`;
-                previewList.appendChild(more);
-            }
+        function toggleBulkSelect(index, checked) {
+            if (checked) bulkSelectedIndexes.add(index);
+            else bulkSelectedIndexes.delete(index);
+            const addCount = document.getElementById('bulkAddCount');
+            if (addCount) addCount.textContent = bulkSelectedIndexes.size;
+            updateBulkPreviewSelectionUI();
+        }
+
+        function updateBulkPreviewSelectionUI() {
+            const previewList = document.getElementById('bulkPreviewList');
+            if (!previewList) return;
+            Array.from(previewList.querySelectorAll('input[type="checkbox"]')).forEach((el, idx) => {
+                el.checked = bulkSelectedIndexes.has(idx);
+            });
         }
 
         function addBulkTasks() {
@@ -4240,23 +4278,99 @@
                 return;
             }
 
+            const selectedIndexes = Array.from(bulkSelectedIndexes).filter(i => i >= 0 && i < tasks.length);
+            if (selectedIndexes.length === 0) {
+                showToast('กรุณาเลือกงานที่ต้องการเพิ่ม', 'error');
+                return;
+            }
+
+            const recurringEnabled = !!(document.getElementById('recurringCheckbox') && document.getElementById('recurringCheckbox').checked);
+            const recurringTypeEl = document.getElementById('recurringType');
+            const recurringIntervalEl = document.getElementById('recurringInterval');
+            const recurringStartEl = document.getElementById('recurringStartDate');
+            const recurringEndEl = document.getElementById('recurringEndDate');
+
             let added = 0;
-            tasks.forEach((taskData, index) => {
+            const nowIso = new Date().toISOString();
+
+            const addSingleTodo = (taskData, dueDate, id) => {
                 const todo = {
-                    id: Date.now() + index,
+                    id,
                     text: taskData.text,
                     completed: false,
                     priority: taskData.priority,
                     category: taskData.category,
-                    dueDate: taskData.dueDate,
+                    dueDate: dueDate || taskData.dueDate,
                     timeStart: taskData.timeStart,
                     timeEnd: taskData.timeEnd,
+                    icon: taskData.icon || '',
                     createdBy: taskData.createdBy || (currentUser ? currentUser.username : ''),
-                    createdAt: new Date().toISOString()
+                    createdAt: nowIso
                 };
-
                 todos.unshift(todo);
                 added++;
+                return todo;
+            };
+
+            const generateRecurringDatesInRange = (config, startDateStr, endDateStr) => {
+                const start = parseDateKeyLocal(startDateStr);
+                const end = parseDateKeyLocal(endDateStr);
+                if (!start || !end) return [];
+                const dates = [];
+                const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+                while (cur <= end) {
+                    if (shouldGenerateForDate(cur, config)) {
+                        dates.push(toDateKey(cur));
+                    }
+                    cur.setDate(cur.getDate() + 1);
+                }
+                return dates;
+            };
+
+            const addRecurringSeries = (taskData, baseIndex) => {
+                const type = recurringTypeEl ? recurringTypeEl.value : 'daily';
+                const interval = recurringIntervalEl ? (parseInt(recurringIntervalEl.value) || 1) : 1;
+                const uiStartDate = recurringStartEl ? recurringStartEl.value : '';
+                const startDateStr = taskData.dueDate || uiStartDate || getTodayDateString();
+                const endDateStrRaw = recurringEndEl ? recurringEndEl.value : '';
+                const endDateStr = endDateStrRaw || '';
+
+                if ((type === 'weekly' || type === 'custom') && (!Array.isArray(selectedWeekdays) || selectedWeekdays.length === 0)) {
+                    showToast('กรุณาเลือกวันที่ต้องการทำซ้ำ', 'error');
+                    return;
+                }
+
+                const parentId = Date.now() + baseIndex + Math.random();
+                const recurring = {
+                    type,
+                    interval,
+                    startDate: startDateStr,
+                    endDate: endDateStrRaw || null,
+                    weekdays: (type === 'weekly' || type === 'custom') ? [...selectedWeekdays].sort() : undefined,
+                    lastGenerated: null
+                };
+
+                addSingleTodo(taskData, startDateStr, parentId).recurring = recurring;
+
+                const rangeEnd = endDateStr || toDateKey(new Date(parseDateKeyLocal(startDateStr).getTime() + 30 * 24 * 60 * 60 * 1000));
+                const dates = generateRecurringDatesInRange(recurring, startDateStr, rangeEnd);
+                dates.forEach((dateStr, i) => {
+                    const id = Date.now() + baseIndex + i + Math.random();
+                    const instance = addSingleTodo(taskData, dateStr, id);
+                    instance.parentId = parentId;
+                    delete instance.recurring;
+                    instance.completed = false;
+                });
+            };
+
+            selectedIndexes.forEach((index, idx) => {
+                const taskData = tasks[index];
+                if (!taskData) return;
+                if (recurringEnabled) {
+                    addRecurringSeries(taskData, index + idx);
+                } else {
+                    addSingleTodo(taskData, taskData.dueDate, Date.now() + index + Math.random());
+                }
             });
 
             saveTodos();
@@ -4299,8 +4413,7 @@
         }
 
         function setDefaultRecurringDates() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('recurringStartDate').value = today;
+            document.getElementById('recurringStartDate').value = getTodayDateString();
         }
 
         function updateRecurringConfig() {
@@ -4420,7 +4533,7 @@
         function generateRecurringTasks() {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const todayStr = today.toISOString().split('T')[0];
+            const todayStr = toDateKey(today);
             
             // Find all recurring parent tasks
             const recurringParents = todos.filter(t => t.recurring && !t.parentId);
@@ -4432,14 +4545,14 @@
                 if (config.lastGenerated === todayStr) return;
                 
                 // Check if today is within the recurring range
-                const startDate = new Date(config.startDate);
-                startDate.setHours(0, 0, 0, 0);
+                const startDate = parseDateKeyLocal(config.startDate);
+                if (!startDate) return;
                 
                 if (today < startDate) return;
                 
                 if (config.endDate) {
-                    const endDate = new Date(config.endDate);
-                    endDate.setHours(0, 0, 0, 0);
+                    const endDate = parseDateKeyLocal(config.endDate);
+                    if (!endDate) return;
                     if (today > endDate) return;
                 }
                 
@@ -4478,8 +4591,8 @@
             
             switch(config.type) {
                 case 'daily':
-                    const startDate = new Date(config.startDate);
-                    startDate.setHours(0, 0, 0, 0);
+                    const startDate = parseDateKeyLocal(config.startDate);
+                    if (!startDate) return false;
                     const daysDiff = Math.floor((date - startDate) / (1000 * 60 * 60 * 24));
                     return daysDiff % config.interval === 0;
                     
@@ -4488,7 +4601,7 @@
                     return config.weekdays.includes(dayOfWeek);
                     
                 case 'monthly':
-                    const startDay = new Date(config.startDate).getDate();
+                    const startDay = (parseDateKeyLocal(config.startDate) || date).getDate();
                     return date.getDate() === startDay;
                     
                 case 'weekdays':
@@ -4768,7 +4881,7 @@
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);
             link.setAttribute('href', url);
-            link.setAttribute('download', `todos_${new Date().toISOString().split('T')[0]}.csv`);
+            link.setAttribute('download', `todos_${getTodayDateString()}.csv`);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
@@ -4786,7 +4899,7 @@
             const medium = todos.filter(t => t.priority === 'medium').length;
             const low = todos.filter(t => t.priority === 'low').length;
             
-            const today = new Date().toISOString().split('T')[0];
+            const today = getTodayDateString();
             const todayTodos = todos.filter(t => t.dueDate === today);
             const overdue = todos.filter(t => t.dueDate && t.dueDate < today && !t.completed).length;
             
