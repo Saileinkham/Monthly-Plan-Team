@@ -439,17 +439,73 @@
         }
 
         async function getAppItem(key) {
+            let localVal = null;
+            let hasLocal = false;
+            try {
+                const raw = localStorage.getItem(key);
+                if (raw !== null) {
+                    hasLocal = true;
+                    localVal = JSON.parse(raw);
+                }
+            } catch {}
+
+            let remoteVal = null;
+            let hasRemote = false;
             if (window.FirestoreAdapter) {
                 try {
                     const val = await FirestoreAdapter.getItem(key);
-                    if (val !== null && val !== undefined) return val;
-                } catch (e) {}
+                    if (val !== null && val !== undefined) {
+                        remoteVal = val;
+                        hasRemote = true;
+                    }
+                } catch {}
             }
-            try {
-                return JSON.parse(localStorage.getItem(key));
-            } catch {
-                return null;
+
+            if (hasRemote && hasLocal) {
+                if (Array.isArray(localVal) && Array.isArray(remoteVal)) {
+                    if (localVal.length !== remoteVal.length) {
+                        const useLocal = localVal.length > remoteVal.length;
+                        if (useLocal && window.FirestoreAdapter) {
+                            try { await FirestoreAdapter.setItem(key, localVal); } catch {}
+                        }
+                        return useLocal ? localVal : remoteVal;
+                    }
+
+                    const getMaxTs = (arr) => {
+                        let max = 0;
+                        for (const item of arr) {
+                            if (!item || typeof item !== 'object') continue;
+                            const candidates = [item.updatedAt, item.createdAt, item.lastUpdated, item.lastGenerated];
+                            for (const c of candidates) {
+                                if (!c) continue;
+                                if (typeof c === 'number') {
+                                    if (c > max) max = c;
+                                } else if (typeof c === 'string') {
+                                    const t = Date.parse(c);
+                                    if (!Number.isNaN(t) && t > max) max = t;
+                                }
+                            }
+                        }
+                        return max;
+                    };
+
+                    const localTs = getMaxTs(localVal);
+                    const remoteTs = getMaxTs(remoteVal);
+                    if (localTs !== remoteTs) {
+                        const useLocal = localTs > remoteTs;
+                        if (useLocal && window.FirestoreAdapter) {
+                            try { await FirestoreAdapter.setItem(key, localVal); } catch {}
+                        }
+                        return useLocal ? localVal : remoteVal;
+                    }
+                }
+
+                return remoteVal;
             }
+
+            if (hasRemote) return remoteVal;
+            if (hasLocal) return localVal;
+            return null;
         }
 
         async function setAppItem(key, value) {
