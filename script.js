@@ -200,6 +200,7 @@
             loadCustomBranches();
             loadCustomCategories();
             initNotificationSoundUI();
+            initPushUI();
             updateBranchVisitSelector();
             updateBranchFilter();
             updateSidebarCategories();
@@ -213,6 +214,7 @@
             renderCalendar();
             updateNotifications();
             renderWeekPlan();
+            scheduleNextTodoNotification();
             checkSidebarVisibility();
             
             // Add Admin Controls if admin (Moved to Settings)
@@ -789,6 +791,14 @@
             document.getElementById('loginOverlay').style.display = 'none';
             await loadUserData();
             initializeApp();
+            registerServiceWorker();
+        }
+
+        async function registerServiceWorker() {
+            if (!('serviceWorker' in navigator)) return;
+            try {
+                await navigator.serviceWorker.register('./sw.js', { scope: './' });
+            } catch (e) {}
         }
 
         // App Name Functions
@@ -2338,6 +2348,11 @@
             document.getElementById('addTodoDate').value = getTodayDateString();
             document.getElementById('addTodoTimeStart').value = '';
             document.getElementById('addTodoTimeEnd').value = '';
+            const notifyEnabledEl = document.getElementById('addTodoNotifyEnabled');
+            const notifyMinutesEl = document.getElementById('addTodoNotifyMinutes');
+            if (notifyEnabledEl) notifyEnabledEl.checked = false;
+            if (notifyMinutesEl) notifyMinutesEl.value = 10;
+            toggleAddTodoNotify();
             addSelectedBranches = [];
 
             const recurringCheckbox = document.getElementById('addTodoRecurringCheckbox');
@@ -2605,6 +2620,14 @@
             const dueDate = document.getElementById('addTodoDate').value;
             const timeStart = document.getElementById('addTodoTimeStart').value;
             const timeEnd = document.getElementById('addTodoTimeEnd').value;
+            const notifyEnabled = !!(document.getElementById('addTodoNotifyEnabled') && document.getElementById('addTodoNotifyEnabled').checked);
+            const notifyMinutesRaw = document.getElementById('addTodoNotifyMinutes') ? document.getElementById('addTodoNotifyMinutes').value : '';
+            const notifyMinutesBefore = Math.max(0, Math.min(1440, parseInt(notifyMinutesRaw) || 0));
+
+            if (notifyEnabled && !timeStart) {
+                showToast('กรุณาเลือกเวลาเริ่ม เพื่อใช้การแจ้งเตือน', 'error');
+                return;
+            }
 
             const createdBy = (() => {
                 if (currentUser && currentUser.role === 'admin') {
@@ -2622,6 +2645,8 @@
                 category: category,
                 timeStart: timeStart || null,
                 timeEnd: timeEnd || null,
+                notifyEnabled,
+                notifyMinutesBefore,
                 branches: [...addSelectedBranches],
                 createdBy,
                 createdAt: new Date().toISOString()
@@ -2707,6 +2732,14 @@
             
             closeAddTodoModal();
             showToast('✅ เพิ่มงานสำเร็จ!');
+        }
+
+        function toggleAddTodoNotify() {
+            const enabledEl = document.getElementById('addTodoNotifyEnabled');
+            const minutesEl = document.getElementById('addTodoNotifyMinutes');
+            if (!enabledEl || !minutesEl) return;
+            minutesEl.disabled = !enabledEl.checked;
+            minutesEl.style.opacity = enabledEl.checked ? '' : '0.6';
         }
 
         function closeAddTodoModal(event) {
@@ -2797,6 +2830,11 @@
             document.getElementById('editTodoDate').value = todo.dueDate || '';
             document.getElementById('editTodoTimeStart').value = todo.timeStart || '';
             document.getElementById('editTodoTimeEnd').value = todo.timeEnd || '';
+            const editNotifyEnabled = document.getElementById('editTodoNotifyEnabled');
+            const editNotifyMinutes = document.getElementById('editTodoNotifyMinutes');
+            if (editNotifyEnabled) editNotifyEnabled.checked = !!todo.notifyEnabled;
+            if (editNotifyMinutes) editNotifyMinutes.value = typeof todo.notifyMinutesBefore === 'number' ? todo.notifyMinutesBefore : 10;
+            toggleEditTodoNotify();
 
             // Populate branch grid
             const editGrid = document.getElementById('editBranchGrid');
@@ -2817,6 +2855,14 @@
 
             // Show modal
             document.getElementById('editModal').classList.add('active');
+        }
+
+        function toggleEditTodoNotify() {
+            const enabledEl = document.getElementById('editTodoNotifyEnabled');
+            const minutesEl = document.getElementById('editTodoNotifyMinutes');
+            if (!enabledEl || !minutesEl) return;
+            minutesEl.disabled = !enabledEl.checked;
+            minutesEl.style.opacity = enabledEl.checked ? '' : '0.6';
         }
 
         function toggleEditBranch(branchCode) {
@@ -2853,6 +2899,9 @@
             todo.dueDate = document.getElementById('editTodoDate').value;
             todo.timeStart = document.getElementById('editTodoTimeStart').value;
             todo.timeEnd = document.getElementById('editTodoTimeEnd').value;
+            todo.notifyEnabled = !!(document.getElementById('editTodoNotifyEnabled') && document.getElementById('editTodoNotifyEnabled').checked);
+            const notifyMinutesRaw = document.getElementById('editTodoNotifyMinutes') ? document.getElementById('editTodoNotifyMinutes').value : '';
+            todo.notifyMinutesBefore = Math.max(0, Math.min(1440, parseInt(notifyMinutesRaw) || 0));
             todo.branches = [...editSelectedBranches];
             if (currentUser && currentUser.role === 'admin') {
                 const select = document.getElementById('editTodoCreatedBy');
@@ -2861,6 +2910,11 @@
                 }
             } else if (!todo.createdBy && currentUser) {
                 todo.createdBy = currentUser.username;
+            }
+
+            if (todo.notifyEnabled && !todo.timeStart) {
+                showToast('กรุณาเลือกเวลาเริ่ม เพื่อใช้การแจ้งเตือน', 'error');
+                return;
             }
 
             if (!todo.text) {
@@ -3519,6 +3573,7 @@
             updateNotifications();
             renderWeekPlan();
             renderCalendar(); // Always refresh calendar
+            scheduleNextTodoNotification();
         }
 
         // Switch View
@@ -4245,6 +4300,7 @@
             }
 
             maybePlayNotificationSound(notifications);
+            processDueTodoNotifications();
         }
 
         function toggleNotifications() {
@@ -4267,6 +4323,121 @@
             notificationSoundType = localStorage.getItem('notificationSoundType') || 'beep';
             const typeSelect = document.getElementById('notificationSoundType');
             if (typeSelect) typeSelect.value = notificationSoundType;
+        }
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+            return outputArray;
+        }
+
+        async function getExistingPushSubscription() {
+            if (!('serviceWorker' in navigator)) return null;
+            if (!('PushManager' in window)) return null;
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                return await reg.pushManager.getSubscription();
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function initPushUI() {
+            const statusEl = document.getElementById('pushStatusText');
+            const btn = document.getElementById('pushToggleBtn');
+            if (!statusEl || !btn) return;
+
+            if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+                statusEl.textContent = 'อุปกรณ์ไม่รองรับ';
+                btn.style.display = 'none';
+                return;
+            }
+
+            const vapidKey = (window.PUSH_VAPID_PUBLIC_KEY || '').trim();
+            if (!vapidKey) {
+                statusEl.textContent = 'ยังไม่ได้ตั้งค่า VAPID key';
+                btn.textContent = 'เปิด';
+                btn.disabled = true;
+                btn.style.opacity = '0.6';
+                btn.style.cursor = 'not-allowed';
+                return;
+            }
+            btn.disabled = false;
+            btn.style.opacity = '';
+            btn.style.cursor = '';
+
+            const perm = Notification.permission;
+            const sub = await getExistingPushSubscription();
+            if (sub) {
+                statusEl.textContent = 'เปิดอยู่';
+                btn.textContent = 'ปิด';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-secondary');
+            } else if (perm === 'denied') {
+                statusEl.textContent = 'ถูกปฏิเสธสิทธิ์ (เปิดในตั้งค่าเบราว์เซอร์)';
+                btn.textContent = 'เปิด';
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-primary');
+            } else {
+                statusEl.textContent = 'ปิดอยู่';
+                btn.textContent = 'เปิด';
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-primary');
+            }
+        }
+
+        async function togglePushNotifications() {
+            const sub = await getExistingPushSubscription();
+            if (sub) {
+                await disablePushNotifications();
+            } else {
+                await enablePushNotifications();
+            }
+            await initPushUI();
+        }
+
+        async function enablePushNotifications() {
+            if (!currentUser) {
+                showToast('กรุณาเข้าสู่ระบบก่อน', 'error');
+                return;
+            }
+            if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+                showToast('อุปกรณ์ไม่รองรับ Push', 'error');
+                return;
+            }
+            const vapidKey = (window.PUSH_VAPID_PUBLIC_KEY || '').trim();
+            if (!vapidKey) {
+                showToast('ยังไม่ได้ตั้งค่า VAPID key', 'error');
+                return;
+            }
+
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                showToast('ไม่ได้รับอนุญาตแจ้งเตือน', 'error');
+                return;
+            }
+
+            await registerServiceWorker();
+            const reg = await navigator.serviceWorker.ready;
+            const applicationServerKey = urlBase64ToUint8Array(vapidKey);
+            const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
+
+            const payload = sub.toJSON ? sub.toJSON() : sub;
+            await setAppItem(`${currentUser.username}_pushSubscription`, payload);
+            showToast('📲 เปิด Push แล้ว');
+        }
+
+        async function disablePushNotifications() {
+            if (!currentUser) return;
+            const sub = await getExistingPushSubscription();
+            if (sub) {
+                try { await sub.unsubscribe(); } catch (e) {}
+            }
+            await setAppItem(`${currentUser.username}_pushSubscription`, null);
+            showToast('📴 ปิด Push แล้ว');
         }
 
         async function ensureNotificationAudioUnlocked() {
@@ -4391,6 +4562,94 @@
                     }
                 }
             }
+        }
+
+        let todoNotificationTimer = null;
+
+        function getTodoNotificationKey(todo) {
+            const u = currentUser ? currentUser.username : '';
+            const minutesBefore = typeof todo.notifyMinutesBefore === 'number' ? todo.notifyMinutesBefore : 0;
+            return `todoNotify_${u}_${todo.id}_${todo.dueDate || ''}_${todo.timeStart || ''}_${minutesBefore}`;
+        }
+
+        function getTodoTriggerTimeMs(todo) {
+            if (!todo || !todo.notifyEnabled) return null;
+            if (!todo.dueDate || !todo.timeStart) return null;
+            const date = parseDateKeyLocal(todo.dueDate);
+            if (!date) return null;
+            const parts = String(todo.timeStart).split(':');
+            if (parts.length < 2) return null;
+            const h = parseInt(parts[0]) || 0;
+            const m = parseInt(parts[1]) || 0;
+            date.setHours(h, m, 0, 0);
+            const minutesBefore = Math.max(0, Math.min(1440, parseInt(todo.notifyMinutesBefore) || 0));
+            return date.getTime() - minutesBefore * 60 * 1000;
+        }
+
+        function fireTodoNotification(todo) {
+            const timeText = todo.timeStart ? String(todo.timeStart).slice(0, 5) : '';
+            const title = 'ถึงเวลางานแล้ว';
+            const body = `${timeText ? timeText + ' • ' : ''}${todo.text || 'งาน'}`;
+
+            if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+                try {
+                    new Notification(title, { body });
+                } catch (e) {}
+            } else {
+                showToast(`🔔 ${body}`);
+            }
+
+            if (notificationSoundEnabled && notificationAudioUnlocked) {
+                playNotificationBeep(notificationSoundType);
+            }
+        }
+
+        function processDueTodoNotifications() {
+            if (!currentUser) return;
+            const now = Date.now();
+            const windowMs = 5 * 60 * 1000;
+            todos.forEach(todo => {
+                const trigger = getTodoTriggerTimeMs(todo);
+                if (trigger === null) return;
+                if (trigger > now) return;
+                if (now - trigger > windowMs) return;
+                const key = getTodoNotificationKey(todo);
+                if (localStorage.getItem(key)) return;
+                localStorage.setItem(key, String(now));
+                fireTodoNotification(todo);
+            });
+        }
+
+        function scheduleNextTodoNotification() {
+            if (todoNotificationTimer) {
+                clearTimeout(todoNotificationTimer);
+                todoNotificationTimer = null;
+            }
+            if (!currentUser) return;
+
+            processDueTodoNotifications();
+
+            const now = Date.now();
+            let nextTime = null;
+            let nextTodo = null;
+
+            for (const todo of todos) {
+                const trigger = getTodoTriggerTimeMs(todo);
+                if (trigger === null) continue;
+                if (trigger <= now) continue;
+                const key = getTodoNotificationKey(todo);
+                if (localStorage.getItem(key)) continue;
+                if (nextTime === null || trigger < nextTime) {
+                    nextTime = trigger;
+                    nextTodo = todo;
+                }
+            }
+
+            if (nextTime === null || !nextTodo) return;
+            const delay = Math.max(0, Math.min(nextTime - now, 2147483647));
+            todoNotificationTimer = setTimeout(() => {
+                scheduleNextTodoNotification();
+            }, delay);
         }
 
         // Week Plan

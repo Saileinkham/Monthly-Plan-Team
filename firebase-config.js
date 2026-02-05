@@ -11,6 +11,8 @@ const firebaseConfig = {
   measurementId: "G-797T5GB43W"
 };
 
+window.PUSH_VAPID_PUBLIC_KEY = "";
+
 // Initialize Firebase
 if (typeof firebase !== 'undefined') {
     if (!firebase.apps || firebase.apps.length === 0) {
