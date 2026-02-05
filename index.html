@@ -6,7 +6,7 @@
     <title>Monthly Plan</title>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20260203-19">
+    <link rel="stylesheet" href="style.css?v=20260203-20">
 </head>
 <body>
     <!-- Sidebar Navigation -->
@@ -800,6 +800,18 @@
                 <div class="notification-title">🔔 แจ้งเตือน</div>
                 <button class="notification-close" onclick="toggleNotifications()">✕</button>
             </div>
+            <div style="padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 0.95rem; font-weight: 600;">🔊 เสียงแจ้งเตือน</span>
+                    <label class="switch" style="transform: scale(0.9); transform-origin: left center;">
+                        <input type="checkbox" id="notificationSoundToggle" onchange="setNotificationSoundEnabled(this.checked)">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <button class="btn btn-secondary" onclick="testNotificationSound()" style="padding: 8px 10px;">
+                    ทดสอบเสียง
+                </button>
+            </div>
             <div class="notification-list" id="notificationList">
                 <!-- Will be populated by JavaScript -->
             </div>
@@ -1411,7 +1423,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
-    <script src="firebase-config.js?v=20260203-19"></script>
-    <script src="script.js?v=20260203-19"></script>
+    <script src="firebase-config.js?v=20260203-20"></script>
+    <script src="script.js?v=20260203-20"></script>
 </body>
 </html>

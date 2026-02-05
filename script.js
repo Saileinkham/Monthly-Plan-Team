@@ -199,6 +199,7 @@
             loadAppName();
             loadCustomBranches();
             loadCustomCategories();
+            initNotificationSoundUI();
             updateBranchVisitSelector();
             updateBranchFilter();
             updateSidebarCategories();
@@ -4242,11 +4243,117 @@
                     list.appendChild(item);
                 });
             }
+
+            maybePlayNotificationSound(notifications);
         }
 
         function toggleNotifications() {
             const panel = document.getElementById('notificationPanel');
             panel.classList.toggle('show');
+        }
+
+        let notificationSoundEnabled = false;
+        let notificationAudioContext = null;
+        let notificationAudioUnlocked = false;
+        let lastNotificationSignature = null;
+        let notificationSoundHintShown = false;
+
+        function initNotificationSoundUI() {
+            notificationSoundEnabled = localStorage.getItem('notificationSoundEnabled') === 'true';
+            const toggle = document.getElementById('notificationSoundToggle');
+            if (toggle) toggle.checked = notificationSoundEnabled;
+        }
+
+        async function ensureNotificationAudioUnlocked() {
+            try {
+                if (!notificationAudioContext) {
+                    const Ctx = window.AudioContext || window.webkitAudioContext;
+                    if (!Ctx) return false;
+                    notificationAudioContext = new Ctx();
+                }
+                if (notificationAudioContext.state === 'suspended') {
+                    await notificationAudioContext.resume();
+                }
+                notificationAudioUnlocked = notificationAudioContext.state === 'running';
+                return notificationAudioUnlocked;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function playNotificationBeep() {
+            if (!notificationAudioContext || !notificationAudioUnlocked) return;
+            const ctx = notificationAudioContext;
+            const now = ctx.currentTime;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, now);
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(0.18, now + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.28);
+        }
+
+        async function testNotificationSound() {
+            const ok = await ensureNotificationAudioUnlocked();
+            if (!ok) {
+                showToast('เบราว์เซอร์ไม่อนุญาตให้เล่นเสียง', 'error');
+                return;
+            }
+            notificationSoundEnabled = true;
+            localStorage.setItem('notificationSoundEnabled', 'true');
+            const toggle = document.getElementById('notificationSoundToggle');
+            if (toggle) toggle.checked = true;
+            playNotificationBeep();
+            showToast('🔊 ทดสอบเสียงแล้ว');
+        }
+
+        async function setNotificationSoundEnabled(enabled) {
+            notificationSoundEnabled = !!enabled;
+            localStorage.setItem('notificationSoundEnabled', notificationSoundEnabled ? 'true' : 'false');
+            if (notificationSoundEnabled) {
+                const ok = await ensureNotificationAudioUnlocked();
+                if (!ok && !notificationSoundHintShown) {
+                    notificationSoundHintShown = true;
+                    showToast('เปิดเสียงแล้ว (ถ้าไม่ดัง กด "ทดสอบเสียง")');
+                }
+            }
+        }
+
+        function getNotificationSignature(notifications) {
+            return notifications
+                .map(n => {
+                    const id = n && n.todo && (n.todo.id || n.todo.parentId) ? String(n.todo.id || n.todo.parentId) : '';
+                    const due = n && n.todo && n.todo.dueDate ? String(n.todo.dueDate) : '';
+                    const text = n && n.todo && n.todo.text ? String(n.todo.text) : (n && n.text ? String(n.text) : '');
+                    return `${id}|${due}|${text}`;
+                })
+                .join('||');
+        }
+
+        function maybePlayNotificationSound(notifications) {
+            const signature = getNotificationSignature(notifications);
+            if (lastNotificationSignature === null) {
+                lastNotificationSignature = signature;
+                return;
+            }
+            if (signature !== lastNotificationSignature) {
+                lastNotificationSignature = signature;
+                if (notificationSoundEnabled) {
+                    if (notificationAudioUnlocked) {
+                        playNotificationBeep();
+                    } else if (!notificationSoundHintShown) {
+                        notificationSoundHintShown = true;
+                        showToast('เปิดเสียงแล้ว (ต้องกด "ทดสอบเสียง" 1 ครั้งก่อน)', 'error');
+                    }
+                }
+            }
         }
 
         // Week Plan
