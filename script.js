@@ -4253,6 +4253,7 @@
         }
 
         let notificationSoundEnabled = false;
+        let notificationSoundType = 'beep';
         let notificationAudioContext = null;
         let notificationAudioUnlocked = false;
         let lastNotificationSignature = null;
@@ -4262,6 +4263,10 @@
             notificationSoundEnabled = localStorage.getItem('notificationSoundEnabled') === 'true';
             const toggle = document.getElementById('notificationSoundToggle');
             if (toggle) toggle.checked = notificationSoundEnabled;
+
+            notificationSoundType = localStorage.getItem('notificationSoundType') || 'beep';
+            const typeSelect = document.getElementById('notificationSoundType');
+            if (typeSelect) typeSelect.value = notificationSoundType;
         }
 
         async function ensureNotificationAudioUnlocked() {
@@ -4281,23 +4286,47 @@
             }
         }
 
-        function playNotificationBeep() {
-            if (!notificationAudioContext || !notificationAudioUnlocked) return;
-            const ctx = notificationAudioContext;
-            const now = ctx.currentTime;
+        function playToneAt(ctx, startTime, frequency, duration, peakGain) {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
 
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(880, now);
-            gain.gain.setValueAtTime(0.0001, now);
-            gain.gain.exponentialRampToValueAtTime(0.18, now + 0.01);
-            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+            osc.frequency.setValueAtTime(frequency, startTime);
+            gain.gain.setValueAtTime(0.0001, startTime);
+            gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peakGain), startTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
 
             osc.connect(gain);
             gain.connect(ctx.destination);
-            osc.start(now);
-            osc.stop(now + 0.28);
+            osc.start(startTime);
+            osc.stop(startTime + duration + 0.02);
+        }
+
+        function playNotificationBeep(type) {
+            if (!notificationAudioContext || !notificationAudioUnlocked) return;
+            const ctx = notificationAudioContext;
+            const now = ctx.currentTime;
+            const t = type || notificationSoundType || 'beep';
+
+            if (t === 'double') {
+                playToneAt(ctx, now, 880, 0.16, 0.16);
+                playToneAt(ctx, now + 0.22, 880, 0.16, 0.16);
+                return;
+            }
+
+            if (t === 'chime') {
+                playToneAt(ctx, now, 784, 0.12, 0.12);
+                playToneAt(ctx, now + 0.10, 988, 0.14, 0.12);
+                playToneAt(ctx, now + 0.22, 1319, 0.18, 0.10);
+                return;
+            }
+
+            if (t === 'soft') {
+                playToneAt(ctx, now, 660, 0.22, 0.08);
+                return;
+            }
+
+            playToneAt(ctx, now, 880, 0.22, 0.16);
         }
 
         async function testNotificationSound() {
@@ -4323,6 +4352,14 @@
                     notificationSoundHintShown = true;
                     showToast('เปิดเสียงแล้ว (ถ้าไม่ดัง กด "ทดสอบเสียง")');
                 }
+            }
+        }
+
+        function setNotificationSoundType(type) {
+            notificationSoundType = type || 'beep';
+            localStorage.setItem('notificationSoundType', notificationSoundType);
+            if (notificationSoundEnabled) {
+                testNotificationSound();
             }
         }
 
