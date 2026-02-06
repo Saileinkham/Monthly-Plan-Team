@@ -2421,7 +2421,9 @@
                         addAssignSelect.appendChild(option);
                     });
                     const preferred = viewingUser && viewingUser !== 'all' ? viewingUser : currentUser.username;
-                    addAssignSelect.value = preferred;
+                    Array.from(addAssignSelect.options).forEach(opt => {
+                        opt.selected = opt.value === preferred;
+                    });
                 } else {
                     addAssignGroup.style.display = 'none';
                     addAssignSelect.innerHTML = '';
@@ -2678,33 +2680,28 @@
 
             const recurringEnabled = !!(document.getElementById('addTodoRecurringCheckbox') && document.getElementById('addTodoRecurringCheckbox').checked);
 
-            const targetUsername = (() => {
-                if (currentUser && currentUser.role === 'admin') {
-                    const assigneeSelect = document.getElementById('addTodoAssignedTo');
-                    const selected = assigneeSelect && assigneeSelect.value ? assigneeSelect.value : '';
-                    return selected || (viewingUser && viewingUser !== 'all' ? viewingUser : currentUser.username);
+            const targetUsernames = (() => {
+                if (!(currentUser && currentUser.role === 'admin')) {
+                    return currentUser ? [currentUser.username] : [];
                 }
-                return currentUser ? currentUser.username : '';
+                const assigneeSelect = document.getElementById('addTodoAssignedTo');
+                const selected = assigneeSelect
+                    ? Array.from(assigneeSelect.selectedOptions || []).map(o => o.value).filter(Boolean)
+                    : [];
+                if (selected.length > 0) return Array.from(new Set(selected));
+                return [viewingUser && viewingUser !== 'all' ? viewingUser : currentUser.username];
             })();
-
-            const baseTask = {
-                text: text,
-                priority: priority,
-                category: category,
-                timeStart: timeStart || null,
-                timeEnd: timeEnd || null,
-                notifyEnabled,
-                notifyMinutesBefore,
-                branches: [...addSelectedBranches],
-                createdBy,
-                assignedTo: currentUser && currentUser.role === 'admin' ? targetUsername : undefined,
-                createdAt: new Date().toISOString()
-            };
+            if (targetUsernames.length === 0) return;
 
             const currentOwner = currentUser && currentUser.role === 'admin' && viewingUser ? viewingUser : (currentUser ? currentUser.username : '');
-            const isOtherUser = currentUser && currentUser.role === 'admin' && targetUsername && currentOwner && targetUsername !== currentOwner;
-            const listRef = isOtherUser ? (await getAppItem(`${targetUsername}_todos`)) : todos;
-            const targetList = Array.isArray(listRef) ? listRef : [];
+            const makeId = () => Date.now() + Math.random();
+
+            const lists = new Map();
+            await Promise.all(targetUsernames.map(async (u) => {
+                const key = `${u}_todos`;
+                const listRef = u === currentOwner ? todos : (await getAppItem(key));
+                lists.set(u, Array.isArray(listRef) ? listRef : []);
+            }));
 
             if (recurringEnabled) {
                 const typeEl = document.getElementById('addTodoRecurringType');
@@ -2727,62 +2724,106 @@
                     return;
                 }
 
-                const recurring = {
+                const shouldCreateStartInstance = shouldGenerateForDate(startDate, {
                     type,
                     interval,
                     startDate: startDateStr,
                     endDate: endDateStrRaw || null,
                     monthlyDay: type === 'monthly' ? (document.getElementById('addTodoRecurringMonthlyDay') ? document.getElementById('addTodoRecurringMonthlyDay').value : undefined) : undefined,
-                    weekdays: (type === 'weekly' || type === 'custom') ? [...addTodoSelectedWeekdays].sort() : undefined,
-                    lastGenerated: null
-                };
+                    weekdays: (type === 'weekly' || type === 'custom') ? [...addTodoSelectedWeekdays].sort() : undefined
+                });
 
-                const parentId = Date.now() + Math.random();
-                const parent = {
-                    id: parentId,
-                    ...baseTask,
-                    dueDate: null,
-                    completed: false,
-                    recurring
-                };
-                targetList.unshift(parent);
+                for (const u of targetUsernames) {
+                    const targetList = lists.get(u) || [];
+                    const baseTask = {
+                        text: text,
+                        priority: priority,
+                        category: category,
+                        timeStart: timeStart || null,
+                        timeEnd: timeEnd || null,
+                        notifyEnabled,
+                        notifyMinutesBefore,
+                        branches: [...addSelectedBranches],
+                        createdBy,
+                        assignedTo: u,
+                        createdAt: new Date().toISOString()
+                    };
 
-                const shouldCreateStartInstance = shouldGenerateForDate(startDate, recurring);
-                if (shouldCreateStartInstance) {
-                    const existingInstance = targetList.find(t => t && t.parentId === parentId && t.dueDate === startDateStr);
-                    if (!existingInstance) {
-                        const instance = {
-                            id: Date.now() + Math.random(),
-                            ...baseTask,
-                            dueDate: startDateStr,
-                            completed: false,
-                            parentId
-                        };
-                        delete instance.recurring;
-                        targetList.unshift(instance);
-                        parent.recurring.lastGenerated = startDateStr;
+                    const recurring = {
+                        type,
+                        interval,
+                        startDate: startDateStr,
+                        endDate: endDateStrRaw || null,
+                        monthlyDay: type === 'monthly' ? (document.getElementById('addTodoRecurringMonthlyDay') ? document.getElementById('addTodoRecurringMonthlyDay').value : undefined) : undefined,
+                        weekdays: (type === 'weekly' || type === 'custom') ? [...addTodoSelectedWeekdays].sort() : undefined,
+                        lastGenerated: null
+                    };
+
+                    const parentId = makeId();
+                    const parent = {
+                        id: parentId,
+                        ...baseTask,
+                        dueDate: null,
+                        completed: false,
+                        recurring
+                    };
+                    targetList.unshift(parent);
+
+                    if (shouldCreateStartInstance) {
+                        const existingInstance = targetList.find(t => t && t.parentId === parentId && t.dueDate === startDateStr);
+                        if (!existingInstance) {
+                            const instance = {
+                                id: makeId(),
+                                ...baseTask,
+                                dueDate: startDateStr,
+                                completed: false,
+                                parentId
+                            };
+                            delete instance.recurring;
+                            targetList.unshift(instance);
+                            parent.recurring.lastGenerated = startDateStr;
+                        }
                     }
+
+                    lists.set(u, targetList);
                 }
             } else {
-                targetList.unshift({
-                    id: Date.now(),
-                    ...baseTask,
-                    dueDate: dueDate || null,
-                    completed: false
-                });
+                for (const u of targetUsernames) {
+                    const targetList = lists.get(u) || [];
+                    const baseTask = {
+                        text: text,
+                        priority: priority,
+                        category: category,
+                        timeStart: timeStart || null,
+                        timeEnd: timeEnd || null,
+                        notifyEnabled,
+                        notifyMinutesBefore,
+                        branches: [...addSelectedBranches],
+                        createdBy,
+                        assignedTo: currentUser && currentUser.role === 'admin' ? u : undefined,
+                        createdAt: new Date().toISOString()
+                    };
+                    targetList.unshift({
+                        id: makeId(),
+                        ...baseTask,
+                        dueDate: dueDate || null,
+                        completed: false
+                    });
+                    lists.set(u, targetList);
+                }
             }
 
-            if (isOtherUser) {
-                await setAppItem(`${targetUsername}_todos`, targetList);
-                showToast(`✅ เพิ่มงานให้ ${getUserDisplayName(targetUsername)}`);
-            } else {
-                todos = targetList;
-                await saveTodos();
-                refreshAllViews();
-            }
+            await Promise.all(targetUsernames.map(async (u) => {
+                const key = `${u}_todos`;
+                const list = lists.get(u) || [];
+                await setAppItem(key, list);
+                if (u === currentOwner) todos = list;
+            }));
+            refreshAllViews();
             
             closeAddTodoModal();
-            if (!isOtherUser) showToast('✅ เพิ่มงานสำเร็จ!');
+            const names = targetUsernames.map(u => getUserDisplayName(u)).join(', ');
+            showToast(`✅ เพิ่มงานให้ ${names}`);
         }
 
         function toggleAddTodoNotify() {
