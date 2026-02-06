@@ -100,7 +100,13 @@ async function maybeClearSubscription(username) {
 async function notifyUser(username, title, body, url, logId, subscription) {
   if (await hasLog(logId)) return { sent: false, reason: 'already_sent' };
   try {
-    await sendWebPush(subscription, { title, body, url });
+    await sendWebPush(subscription, {
+      title,
+      body,
+      url,
+      requireInteraction: true,
+      vibrate: [200, 100, 200]
+    });
     await writeLog(logId, { username, title, body, url });
     return { sent: true };
   } catch (e) {

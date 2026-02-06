@@ -2346,6 +2346,7 @@
 
         // Add Todo Modal Functions
         let addSelectedBranches = [];
+        let addSelectedAssignees = [];
         let addTodoSelectedWeekdays = [];
 
         function openAddTodoModal() {
@@ -2408,25 +2409,19 @@
             }
 
             const addAssignGroup = document.getElementById('addTodoAssignGroup');
-            const addAssignSelect = document.getElementById('addTodoAssignedTo');
-            if (addAssignGroup && addAssignSelect) {
+            const addAssignGrid = document.getElementById('addTodoAssignedToGrid');
+            const addAssignSummary = document.getElementById('addTodoAssignedToSummary');
+            if (addAssignGroup && addAssignGrid) {
                 if (currentUser && currentUser.role === 'admin') {
                     addAssignGroup.style.display = 'block';
-                    addAssignSelect.innerHTML = '';
-                    users.forEach(u => {
-                        if (!u || !u.username) return;
-                        const option = document.createElement('option');
-                        option.value = u.username;
-                        option.textContent = u.displayName ? `${u.displayName} (${u.username})` : u.username;
-                        addAssignSelect.appendChild(option);
-                    });
                     const preferred = viewingUser && viewingUser !== 'all' ? viewingUser : currentUser.username;
-                    Array.from(addAssignSelect.options).forEach(opt => {
-                        opt.selected = opt.value === preferred;
-                    });
+                    addSelectedAssignees = preferred ? [preferred] : [];
+                    renderAddTodoAssignees();
                 } else {
                     addAssignGroup.style.display = 'none';
-                    addAssignSelect.innerHTML = '';
+                    addAssignGrid.innerHTML = '';
+                    addSelectedAssignees = [];
+                    if (addAssignSummary) addAssignSummary.textContent = '';
                 }
             }
 
@@ -2645,6 +2640,57 @@
             }
         }
 
+        function getAddAssigneeOptionId(username) {
+            return `add-assignee-${String(username || '').replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+        }
+
+        function renderAddTodoAssignees() {
+            const grid = document.getElementById('addTodoAssignedToGrid');
+            const summary = document.getElementById('addTodoAssignedToSummary');
+            if (!grid) return;
+            grid.innerHTML = '';
+
+            const selectedSet = new Set((Array.isArray(addSelectedAssignees) ? addSelectedAssignees : []).filter(Boolean));
+            const sorted = Array.isArray(users) ? [...users].filter(u => u && u.username) : [];
+            sorted.sort((a, b) => String(a.username).localeCompare(String(b.username), 'th'));
+
+            sorted.forEach(u => {
+                const username = u.username;
+                const isSelected = selectedSet.has(username);
+                const option = document.createElement('div');
+                option.className = 'branch-option' + (isSelected ? ' selected' : '');
+                option.onclick = () => toggleAddAssignee(username);
+                const id = getAddAssigneeOptionId(username);
+                const label = u.displayName ? `${u.displayName} (${u.username})` : u.username;
+                option.innerHTML = `
+                    <input type="checkbox" id="${id}" value="${username}" ${isSelected ? 'checked' : ''}>
+                    <label for="${id}">${label}</label>
+                `;
+                grid.appendChild(option);
+            });
+
+            if (summary) {
+                const names = Array.from(selectedSet).map(u => getUserDisplayName(u)).join(', ');
+                summary.textContent = selectedSet.size > 0 ? `เลือกแล้ว: ${names}` : 'ยังไม่ได้เลือกผู้รับงาน';
+            }
+        }
+
+        function toggleAddAssignee(username) {
+            event.stopPropagation();
+            const u = String(username || '');
+            if (!u) return;
+            const idx = addSelectedAssignees.indexOf(u);
+            if (idx > -1) addSelectedAssignees.splice(idx, 1);
+            else addSelectedAssignees.push(u);
+
+            const id = getAddAssigneeOptionId(u);
+            const checkbox = document.getElementById(id);
+            if (checkbox) checkbox.checked = addSelectedAssignees.includes(u);
+            const option = checkbox ? checkbox.closest('.branch-option') : null;
+            if (option) option.classList.toggle('selected', checkbox.checked);
+            renderAddTodoAssignees();
+        }
+
         async function saveNewTodo() {
             if (!canManageTodosNow()) {
                 showToast('ไม่มีสิทธิ์จัดการงาน', 'error');
@@ -2684,10 +2730,7 @@
                 if (!(currentUser && currentUser.role === 'admin')) {
                     return currentUser ? [currentUser.username] : [];
                 }
-                const assigneeSelect = document.getElementById('addTodoAssignedTo');
-                const selected = assigneeSelect
-                    ? Array.from(assigneeSelect.selectedOptions || []).map(o => o.value).filter(Boolean)
-                    : [];
+                const selected = Array.isArray(addSelectedAssignees) ? addSelectedAssignees.filter(Boolean) : [];
                 if (selected.length > 0) return Array.from(new Set(selected));
                 return [viewingUser && viewingUser !== 'all' ? viewingUser : currentUser.username];
             })();
@@ -2928,22 +2971,29 @@
             if (editNotifyMinutes) editNotifyMinutes.value = typeof todo.notifyMinutesBefore === 'number' ? todo.notifyMinutesBefore : 10;
             toggleEditTodoNotify();
 
-            // Populate branch grid
+            const editBranchGroup = document.getElementById('editBranchGroup');
             const editGrid = document.getElementById('editBranchGrid');
-            editGrid.innerHTML = '';
-            
-            const allBranches = [...defaultBranches, ...customBranches];
-            allBranches.forEach(branch => {
-                const isSelected = editSelectedBranches.includes(branch);
-                const option = document.createElement('div');
-                option.className = 'branch-option' + (isSelected ? ' selected' : '');
-                option.onclick = () => toggleEditBranch(branch);
-                option.innerHTML = `
-                    <input type="checkbox" id="edit-branch-${branch}" value="${branch}" ${isSelected ? 'checked' : ''}>
-                    <label for="edit-branch-${branch}">${branch}</label>
-                `;
-                editGrid.appendChild(option);
-            });
+            if (currentUser && currentUser.role === 'admin') {
+                if (editBranchGroup) editBranchGroup.style.display = '';
+                if (editGrid) {
+                    editGrid.innerHTML = '';
+                    const allBranches = [...defaultBranches, ...customBranches];
+                    allBranches.forEach(branch => {
+                        const isSelected = editSelectedBranches.includes(branch);
+                        const option = document.createElement('div');
+                        option.className = 'branch-option' + (isSelected ? ' selected' : '');
+                        option.onclick = () => toggleEditBranch(branch);
+                        option.innerHTML = `
+                            <input type="checkbox" id="edit-branch-${branch}" value="${branch}" ${isSelected ? 'checked' : ''}>
+                            <label for="edit-branch-${branch}">${branch}</label>
+                        `;
+                        editGrid.appendChild(option);
+                    });
+                }
+            } else {
+                if (editBranchGroup) editBranchGroup.style.display = 'none';
+                if (editGrid) editGrid.innerHTML = '';
+            }
 
             // Show modal
             document.getElementById('editModal').classList.add('active');
@@ -2994,7 +3044,9 @@
             todo.notifyEnabled = !!(document.getElementById('editTodoNotifyEnabled') && document.getElementById('editTodoNotifyEnabled').checked);
             const notifyMinutesRaw = document.getElementById('editTodoNotifyMinutes') ? document.getElementById('editTodoNotifyMinutes').value : '';
             todo.notifyMinutesBefore = Math.max(0, Math.min(1440, parseInt(notifyMinutesRaw) || 0));
-            todo.branches = [...editSelectedBranches];
+            if (currentUser && currentUser.role === 'admin') {
+                todo.branches = [...editSelectedBranches];
+            }
             if (currentUser && currentUser.role === 'admin') {
                 const select = document.getElementById('editTodoCreatedBy');
                 if (select && select.value) {
@@ -4690,9 +4742,14 @@
             const title = 'ถึงเวลางานแล้ว';
             const body = `${timeText ? timeText + ' • ' : ''}${todo.text || 'งาน'}`;
 
-            if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+            if ('Notification' in window && Notification.permission === 'granted') {
                 try {
-                    new Notification(title, { body });
+                    new Notification(title, {
+                        body,
+                        requireInteraction: true,
+                        silent: false,
+                        tag: `todo_${todo.id}`
+                    });
                 } catch (e) {}
             } else {
                 showToast(`🔔 ${body}`);

@@ -1,13 +1,13 @@
-const CACHE_NAME = 'monthly-plan-cache-20260206-06';
+const CACHE_NAME = 'monthly-plan-cache-20260206-08';
 const ASSETS = [
   './',
   './index.html',
   './style.css',
-  './style.css?v=20260206-06',
+  './style.css?v=20260206-08',
   './script.js',
-  './script.js?v=20260206-06',
+  './script.js?v=20260206-08',
   './firebase-config.js',
-  './firebase-config.js?v=20260206-06',
+  './firebase-config.js?v=20260206-08',
   './manifest.webmanifest',
   './icons/icon-192.svg',
   './icons/icon-512.svg'
@@ -62,12 +62,19 @@ self.addEventListener('push', (event) => {
   }
 
   const title = data.title || 'แจ้งเตือน';
+  const tag = data.tag || (data.todoId ? `todo_${data.todoId}` : undefined);
   const options = {
     body: data.body || '',
     icon: data.icon || './icons/icon-192.svg',
     badge: data.badge || './icons/icon-192.svg',
+    requireInteraction: !!data.requireInteraction,
+    renotify: true,
+    silent: false,
+    vibrate: Array.isArray(data.vibrate) ? data.vibrate : [200, 100, 200],
+    tag,
     data: {
-      url: data.url || './'
+      url: data.url || './',
+      todoId: data.todoId || null
     }
   };
 
