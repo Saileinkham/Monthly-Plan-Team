@@ -2465,21 +2465,29 @@
                 categorySelect.appendChild(option);
             });
 
-            // Populate Branch Grid
+            const addBranchGroup = document.getElementById('addBranchGroup');
             const addGrid = document.getElementById('addBranchGrid');
-            addGrid.innerHTML = '';
-            
-            const allBranches = [...defaultBranches, ...customBranches];
-            allBranches.forEach(branch => {
-                const option = document.createElement('div');
-                option.className = 'branch-option';
-                option.onclick = () => toggleAddBranch(branch);
-                option.innerHTML = `
-                    <input type="checkbox" id="add-branch-${branch}" value="${branch}">
-                    <label for="add-branch-${branch}">${branch}</label>
-                `;
-                addGrid.appendChild(option);
-            });
+            if (currentUser && currentUser.role === 'admin') {
+                if (addBranchGroup) addBranchGroup.style.display = '';
+                if (addGrid) {
+                    addGrid.innerHTML = '';
+                    const allBranches = [...defaultBranches, ...customBranches];
+                    allBranches.forEach(branch => {
+                        const option = document.createElement('div');
+                        option.className = 'branch-option';
+                        option.onclick = () => toggleAddBranch(branch);
+                        option.innerHTML = `
+                            <input type="checkbox" id="add-branch-${branch}" value="${branch}">
+                            <label for="add-branch-${branch}">${branch}</label>
+                        `;
+                        addGrid.appendChild(option);
+                    });
+                }
+            } else {
+                if (addBranchGroup) addBranchGroup.style.display = 'none';
+                if (addGrid) addGrid.innerHTML = '';
+                addSelectedBranches = [];
+            }
 
             document.getElementById('addTodoModal').classList.add('active');
         }
@@ -2786,7 +2794,7 @@
                         timeEnd: timeEnd || null,
                         notifyEnabled,
                         notifyMinutesBefore,
-                        branches: [...addSelectedBranches],
+                        branches: currentUser && currentUser.role === 'admin' ? [...addSelectedBranches] : [],
                         createdBy,
                         assignedTo: u,
                         createdAt: new Date().toISOString()
@@ -2841,7 +2849,7 @@
                         timeEnd: timeEnd || null,
                         notifyEnabled,
                         notifyMinutesBefore,
-                        branches: [...addSelectedBranches],
+                        branches: currentUser && currentUser.role === 'admin' ? [...addSelectedBranches] : [],
                         createdBy,
                         assignedTo: currentUser && currentUser.role === 'admin' ? u : undefined,
                         createdAt: new Date().toISOString()
