@@ -2394,6 +2394,27 @@
                 }
             }
 
+            const addAssignGroup = document.getElementById('addTodoAssignGroup');
+            const addAssignSelect = document.getElementById('addTodoAssignedTo');
+            if (addAssignGroup && addAssignSelect) {
+                if (currentUser && currentUser.role === 'admin') {
+                    addAssignGroup.style.display = 'block';
+                    addAssignSelect.innerHTML = '';
+                    users.forEach(u => {
+                        if (!u || !u.username) return;
+                        const option = document.createElement('option');
+                        option.value = u.username;
+                        option.textContent = u.displayName ? `${u.displayName} (${u.username})` : u.username;
+                        addAssignSelect.appendChild(option);
+                    });
+                    const preferred = viewingUser && viewingUser !== 'all' ? viewingUser : currentUser.username;
+                    addAssignSelect.value = preferred;
+                } else {
+                    addAssignGroup.style.display = 'none';
+                    addAssignSelect.innerHTML = '';
+                }
+            }
+
             // Populate Category
             const categorySelect = document.getElementById('addTodoCategory');
             categorySelect.innerHTML = '';
@@ -2461,8 +2482,8 @@
             checkbox.checked = !checkbox.checked;
             if (checkbox.checked) {
                 options.classList.add('show');
-                const startEl = document.getElementById('addTodoRecurringStartDate');
                 const dueDate = document.getElementById('addTodoDate');
+                const startEl = document.getElementById('addTodoRecurringStartDate');
                 if (startEl && dueDate && dueDate.value) startEl.value = dueDate.value;
                 updateAddTodoRecurringConfig();
             } else {
@@ -2495,8 +2516,8 @@
                 intervalField.style.display = 'block';
                 if (monthlyDayField) {
                     monthlyDayField.style.display = 'block';
-                    const startEl = document.getElementById('addTodoRecurringStartDate');
-                    const startDate = parseDateKeyLocal(startEl ? startEl.value : '');
+                    const dueDateEl = document.getElementById('addTodoDate');
+                    const startDate = parseDateKeyLocal(dueDateEl ? dueDateEl.value : '');
                     const day = startDate ? String(startDate.getDate()) : '1';
                     const daySelect = document.getElementById('addTodoRecurringMonthlyDay');
                     if (daySelect) daySelect.value = day;
@@ -2604,7 +2625,7 @@
             }
         }
 
-        function saveNewTodo() {
+        async function saveNewTodo() {
             if (!canManageTodosNow()) {
                 showToast('ไม่มีสิทธิ์จัดการงาน', 'error');
                 return;
@@ -2639,6 +2660,15 @@
 
             const recurringEnabled = !!(document.getElementById('addTodoRecurringCheckbox') && document.getElementById('addTodoRecurringCheckbox').checked);
 
+            const targetUsername = (() => {
+                if (currentUser && currentUser.role === 'admin') {
+                    const assigneeSelect = document.getElementById('addTodoAssignedTo');
+                    const selected = assigneeSelect && assigneeSelect.value ? assigneeSelect.value : '';
+                    return selected || (viewingUser && viewingUser !== 'all' ? viewingUser : currentUser.username);
+                }
+                return currentUser ? currentUser.username : '';
+            })();
+
             const baseTask = {
                 text: text,
                 priority: priority,
@@ -2649,17 +2679,22 @@
                 notifyMinutesBefore,
                 branches: [...addSelectedBranches],
                 createdBy,
+                assignedTo: currentUser && currentUser.role === 'admin' ? targetUsername : undefined,
                 createdAt: new Date().toISOString()
             };
+
+            const currentOwner = currentUser && currentUser.role === 'admin' && viewingUser ? viewingUser : (currentUser ? currentUser.username : '');
+            const isOtherUser = currentUser && currentUser.role === 'admin' && targetUsername && currentOwner && targetUsername !== currentOwner;
+            const listRef = isOtherUser ? (await getAppItem(`${targetUsername}_todos`)) : todos;
+            const targetList = Array.isArray(listRef) ? listRef : [];
 
             if (recurringEnabled) {
                 const typeEl = document.getElementById('addTodoRecurringType');
                 const intervalEl = document.getElementById('addTodoRecurringInterval');
-                const startEl = document.getElementById('addTodoRecurringStartDate');
                 const endEl = document.getElementById('addTodoRecurringEndDate');
                 const type = typeEl ? typeEl.value : 'daily';
                 const interval = intervalEl ? (parseInt(intervalEl.value) || 1) : 1;
-                const startDateStr = dueDate || (startEl && startEl.value) || getTodayDateString();
+                const startDateStr = dueDate || getTodayDateString();
                 const endDateStrRaw = endEl ? endEl.value : '';
 
                 if ((type === 'weekly' || type === 'custom') && (!Array.isArray(addTodoSelectedWeekdays) || addTodoSelectedWeekdays.length === 0)) {
@@ -2691,35 +2726,26 @@
                     completed: false,
                     recurring
                 };
-                todos.unshift(parent);
+                targetList.unshift(parent);
 
-                const rangeEndStr = endDateStrRaw ? endDateStrRaw : toDateKey(new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + 30));
-                const endDate = parseDateKeyLocal(rangeEndStr);
-                if (!endDate) {
-                    showToast('กรุณาเลือกวันที่สิ้นสุดที่ถูกต้อง', 'error');
-                    return;
-                }
-
-                const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-                const seenDates = new Set();
-                while (cursor <= endDate) {
-                    if (shouldGenerateForDate(cursor, recurring)) {
-                        const dateKey = toDateKey(cursor);
-                        if (!seenDates.has(dateKey)) {
-                            seenDates.add(dateKey);
-                            todos.unshift({
-                                id: Date.now() + Math.random(),
-                                ...baseTask,
-                                dueDate: dateKey,
-                                completed: false,
-                                parentId
-                            });
-                        }
+                const shouldCreateStartInstance = shouldGenerateForDate(startDate, recurring);
+                if (shouldCreateStartInstance) {
+                    const existingInstance = targetList.find(t => t && t.parentId === parentId && t.dueDate === startDateStr);
+                    if (!existingInstance) {
+                        const instance = {
+                            id: Date.now() + Math.random(),
+                            ...baseTask,
+                            dueDate: startDateStr,
+                            completed: false,
+                            parentId
+                        };
+                        delete instance.recurring;
+                        targetList.unshift(instance);
+                        parent.recurring.lastGenerated = startDateStr;
                     }
-                    cursor.setDate(cursor.getDate() + 1);
                 }
             } else {
-                todos.unshift({
+                targetList.unshift({
                     id: Date.now(),
                     ...baseTask,
                     dueDate: dueDate || null,
@@ -2727,11 +2753,17 @@
                 });
             }
 
-            saveTodos();
-            refreshAllViews();
+            if (isOtherUser) {
+                await setAppItem(`${targetUsername}_todos`, targetList);
+                showToast(`✅ เพิ่มงานให้ ${getUserDisplayName(targetUsername)}`);
+            } else {
+                todos = targetList;
+                await saveTodos();
+                refreshAllViews();
+            }
             
             closeAddTodoModal();
-            showToast('✅ เพิ่มงานสำเร็จ!');
+            if (!isOtherUser) showToast('✅ เพิ่มงานสำเร็จ!');
         }
 
         function toggleAddTodoNotify() {
@@ -2974,6 +3006,7 @@
         // Render Todos
         function renderTodos(searchQuery = '') {
             let filtered = [...todos];
+            filtered = filtered.filter(t => !(t && t.recurring && !t.parentId));
 
             // Apply search
             if (searchQuery) {
