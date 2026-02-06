@@ -439,6 +439,17 @@
                     delete v.time;
                 });
             }
+
+            let changed = false;
+            todos.forEach(t => {
+                if (t && t.recurring && !t.parentId && t.dueDate) {
+                    t.dueDate = null;
+                    changed = true;
+                }
+            });
+            if (changed && !(currentUser.role === 'admin' && viewingUser === 'all')) {
+                await saveTodos();
+            }
         }
 
         async function getAppItem(key) {
@@ -3738,7 +3749,7 @@
             // Get todos for this day
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const thaiHoliday = getThaiHoliday(dateStr);
-            const dayTodos = todos.filter(t => t.dueDate === dateStr);
+            const dayTodos = todos.filter(t => t.dueDate === dateStr && !(t && t.recurring && !t.parentId));
             const isDayOff = hasDayOffOnDate(dateStr);
             const dayLeaves = getLeaveEntriesForDate(dateStr);
             const dayLeave = dayLeaves.length > 0 ? dayLeaves[0] : null;
@@ -3885,7 +3896,7 @@
 
         function showDayTodos(dateStr, day, month, year) {
             currentSelectedDate = dateStr;
-            const dayTodos = todos.filter(t => t.dueDate === dateStr);
+            const dayTodos = todos.filter(t => t.dueDate === dateStr && !(t && t.recurring && !t.parentId));
             const dayVisits = branchVisits.filter(v => v.date === dateStr);
             const isDayOff = hasDayOffOnDate(dateStr);
             const dayLeaves = getLeaveEntriesForDate(dateStr);
@@ -4722,7 +4733,7 @@
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 
                 const isToday = i === 0;
-                const dayTodos = todos.filter(t => t.dueDate === dateStr);
+                const dayTodos = todos.filter(t => t.dueDate === dateStr && !(t && t.recurring && !t.parentId));
                 const dayVisits = branchVisits.filter(v => v.date === dateStr);
                 const dayLeaves = leaveDays.filter(l => l && l.date === dateStr);
                 const isDayOff = hasDayOffOnDate(dateStr);
@@ -5089,7 +5100,7 @@
                     completed: false,
                     priority: taskData.priority,
                     category: taskData.category,
-                    dueDate: dueDate || taskData.dueDate,
+                    dueDate: dueDate === null ? null : (dueDate || taskData.dueDate),
                     timeStart: taskData.timeStart,
                     timeEnd: taskData.timeEnd,
                     icon: taskData.icon || '',
@@ -5120,9 +5131,9 @@
                 const type = recurringTypeEl ? recurringTypeEl.value : 'daily';
                 const interval = recurringIntervalEl ? (parseInt(recurringIntervalEl.value) || 1) : 1;
                 const uiStartDate = recurringStartEl ? recurringStartEl.value : '';
-                const startDateStr = taskData.dueDate || uiStartDate || getTodayDateString();
+                const bulkDefaultDate = document.getElementById('bulkDefaultDate') ? document.getElementById('bulkDefaultDate').value : '';
+                const startDateStr = uiStartDate || bulkDefaultDate || getTodayDateString();
                 const endDateStrRaw = recurringEndEl ? recurringEndEl.value : '';
-                const endDateStr = endDateStrRaw || '';
 
                 if ((type === 'weekly' || type === 'custom') && (!Array.isArray(selectedWeekdays) || selectedWeekdays.length === 0)) {
                     showToast('กรุณาเลือกวันที่ต้องการทำซ้ำ', 'error');
@@ -5140,11 +5151,18 @@
                     lastGenerated: null
                 };
 
-                addSingleTodo(taskData, startDateStr, parentId).recurring = recurring;
+                const parent = addSingleTodo(taskData, null, parentId);
+                parent.recurring = recurring;
+                parent.completed = false;
 
-                const rangeEnd = endDateStr || toDateKey(new Date(parseDateKeyLocal(startDateStr).getTime() + 30 * 24 * 60 * 60 * 1000));
-                const dates = generateRecurringDatesInRange(recurring, startDateStr, rangeEnd);
-                dates.forEach((dateStr, i) => {
+                const dates = (() => {
+                    if (endDateStrRaw) {
+                        return generateRecurringDatesInRange(recurring, startDateStr, endDateStrRaw);
+                    }
+                    return [startDateStr];
+                })();
+
+                Array.from(new Set(dates)).forEach((dateStr, i) => {
                     const id = Date.now() + baseIndex + i + Math.random();
                     const instance = addSingleTodo(taskData, dateStr, id);
                     instance.parentId = parentId;
