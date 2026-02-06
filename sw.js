@@ -1,13 +1,13 @@
-const CACHE_NAME = 'monthly-plan-cache-20260206-10';
+const CACHE_NAME = 'monthly-plan-cache-20260206-11';
 const ASSETS = [
   './',
   './index.html',
   './style.css',
-  './style.css?v=20260206-10',
+  './style.css?v=20260206-11',
   './script.js',
-  './script.js?v=20260206-10',
+  './script.js?v=20260206-11',
   './firebase-config.js',
-  './firebase-config.js?v=20260206-10',
+  './firebase-config.js?v=20260206-11',
   './manifest.webmanifest',
   './icons/icon-192.svg',
   './icons/icon-512.svg'

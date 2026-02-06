@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <meta name="theme-color" content="#6366f1">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="style.css?v=20260206-10">
+    <link rel="stylesheet" href="style.css?v=20260206-11">
 </head>
 <body>
     <!-- Sidebar Navigation -->
@@ -384,6 +384,21 @@
                             <span>เลยกำหนด</span>
                         </div>
                         <div class="summary-item-value" style="color: var(--danger);" id="monthOverdueTasks">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="summary-card">
+                <div class="summary-card-header">
+                    <div class="summary-card-title">
+                        <span class="summary-card-icon">📝</span>
+                        <span>Note ประจำเดือน</span>
+                    </div>
+                </div>
+                <div class="summary-card-body">
+                    <textarea id="monthNoteInput" class="bulk-textarea" rows="4" placeholder="พิมพ์ Note สำหรับเดือนนี้..." style="min-height: 110px;" oninput="onMonthNoteInput()"></textarea>
+                    <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                        <button class="btn btn-primary" onclick="saveMonthNote()" style="padding: 10px 14px;">💾 บันทึก Note</button>
                     </div>
                 </div>
             </div>
@@ -820,9 +835,12 @@
                     <select id="notificationSoundType" onchange="setNotificationSoundType(this.value)" style="flex: 1; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary);">
                         <option value="beep">Beep</option>
                         <option value="double">Beep x2</option>
+                        <option value="triple">Beep x3</option>
                         <option value="chime">Chime</option>
                         <option value="soft">Soft</option>
                         <option value="ding">Ding (ดื๊ง)</option>
+                        <option value="bell">Bell</option>
+                        <option value="alarm">Alarm</option>
                     </select>
                 </div>
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
@@ -1481,7 +1499,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
-    <script src="firebase-config.js?v=20260206-10"></script>
-    <script src="script.js?v=20260206-10"></script>
+    <script src="firebase-config.js?v=20260206-11"></script>
+    <script src="script.js?v=20260206-11"></script>
 </body>
 </html>

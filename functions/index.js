@@ -97,7 +97,38 @@ async function maybeClearSubscription(username) {
   }, { merge: true });
 }
 
-async function notifyUser(username, title, body, url, logId, subscription) {
+function getZonedNowParts(timeZone) {
+  const dtf = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  const parts = dtf.formatToParts(new Date()).reduce((acc, p) => {
+    acc[p.type] = p.value;
+    return acc;
+  }, {});
+  const year = Number(parts.year);
+  const month = Number(parts.month);
+  const day = Number(parts.day);
+  const hour = Number(parts.hour);
+  const minute = Number(parts.minute);
+  const second = Number(parts.second);
+  return { year, month, day, hour, minute, second };
+}
+
+function toDateKeyFromParts(p) {
+  const y = p && p.year ? p.year : 1970;
+  const m = String(p && p.month ? p.month : 1).padStart(2, '0');
+  const d = String(p && p.day ? p.day : 1).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+async function notifyUser(username, title, body, url, logId, subscription, extra) {
   if (await hasLog(logId)) return { sent: false, reason: 'already_sent' };
   try {
     await sendWebPush(subscription, {
@@ -105,7 +136,8 @@ async function notifyUser(username, title, body, url, logId, subscription) {
       body,
       url,
       requireInteraction: true,
-      vibrate: [200, 100, 200]
+      vibrate: [200, 100, 200],
+      ...(isPlainObject(extra) ? extra : {})
     });
     await writeLog(logId, { username, title, body, url });
     return { sent: true };
@@ -147,12 +179,12 @@ exports.pushTest = functions.https.onRequest(async (req, res) => {
   }
 });
 
-exports.pushDueSoon = functions.pubsub.schedule('every 5 minutes').timeZone('Asia/Bangkok').onRun(async () => {
+exports.pushDueSoon = functions.pubsub.schedule('every 1 minutes').timeZone('Asia/Bangkok').onRun(async () => {
   const usersValue = await readKeyValueDoc('users');
   const users = Array.isArray(usersValue) ? usersValue : [];
-  const now = new Date();
-  const todayKey = toDateKey(now);
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const nowParts = getZonedNowParts('Asia/Bangkok');
+  const todayKey = toDateKeyFromParts(nowParts);
+  const nowMin = nowParts.hour * 60 + nowParts.minute;
 
   const results = [];
   for (const u of users) {
@@ -173,11 +205,16 @@ exports.pushDueSoon = functions.pubsub.schedule('every 5 minutes').timeZone('Asi
       const triggerMin = startMin - minutesBefore;
       if (triggerMin < 0) continue;
       const diff = triggerMin - nowMin;
-      if (diff < 0 || diff > 5) continue;
+      if (diff < 0 || diff > 2) continue;
       const title = 'ถึงเวลางานแล้ว';
       const body = `${timeStart} • ${t.text || 'งาน'}` + (minutesBefore ? ` (แจ้งก่อน ${minutesBefore} นาที)` : '');
       const logId = makeLogId(['dueSoon', username, String(t.id || ''), todayKey, timeStart, String(minutesBefore)]);
-      const r = await notifyUser(username, title, body, './', logId, subscription);
+      const todoId = t && (t.id || t.parentId) ? String(t.id || t.parentId) : '';
+      const url = todoId ? `./?openTodo=${encodeURIComponent(todoId)}` : './';
+      const r = await notifyUser(username, title, body, url, logId, subscription, {
+        todoId: todoId || null,
+        tag: todoId ? `todo_${todoId}` : undefined
+      });
       results.push({ username, id: t.id, sent: r.sent });
     }
   }
@@ -187,8 +224,8 @@ exports.pushDueSoon = functions.pubsub.schedule('every 5 minutes').timeZone('Asi
 exports.pushDailySummary = functions.pubsub.schedule('0 8 * * *').timeZone('Asia/Bangkok').onRun(async () => {
   const usersValue = await readKeyValueDoc('users');
   const users = Array.isArray(usersValue) ? usersValue : [];
-  const now = new Date();
-  const todayKey = toDateKey(now);
+  const nowParts = getZonedNowParts('Asia/Bangkok');
+  const todayKey = toDateKeyFromParts(nowParts);
 
   const results = [];
   for (const u of users) {

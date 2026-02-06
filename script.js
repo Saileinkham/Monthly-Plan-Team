@@ -208,6 +208,7 @@
             generateRecurringTasks();
             updateSidebarCounts();
             renderDashboardSummary();
+            loadMonthNote();
             renderTodos();
             updateStats();
             // setDefaultDate(); // Deprecated
@@ -216,6 +217,7 @@
             renderWeekPlan();
             scheduleNextTodoNotification();
             checkSidebarVisibility();
+            handleOpenTodoDeepLink();
             
             // Add Admin Controls if admin (Moved to Settings)
             /*
@@ -233,6 +235,32 @@
             }, 3600000);
 
             window.addEventListener('resize', checkSidebarVisibility);
+        }
+
+        function handleOpenTodoDeepLink() {
+            try {
+                const params = new URLSearchParams(window.location.search || '');
+                const openTodo = params.get('openTodo');
+                if (!openTodo) return;
+
+                const todo = (Array.isArray(todos) ? todos : []).find(t => t && (String(t.id) === String(openTodo) || String(t.parentId) === String(openTodo)));
+                if (todo && todo.dueDate) {
+                    const parts = String(todo.dueDate).split('-');
+                    if (parts.length === 3) {
+                        const y = parseInt(parts[0]) || 0;
+                        const m = (parseInt(parts[1]) || 1) - 1;
+                        const d = parseInt(parts[2]) || 1;
+                        if (y > 0 && m >= 0 && m <= 11) {
+                            showDayTodos(todo.dueDate, d, m, y);
+                        }
+                    }
+                }
+
+                params.delete('openTodo');
+                const q = params.toString();
+                const nextUrl = window.location.pathname + (q ? `?${q}` : '') + window.location.hash;
+                window.history.replaceState({}, '', nextUrl);
+            } catch {}
         }
 
         function isAdminUser() {
@@ -1100,6 +1128,50 @@
                     }
                 }
             }
+        }
+
+        let monthNoteSaveTimer = null;
+
+        function getCurrentMonthKey() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            return `${y}-${m}`;
+        }
+
+        function getMonthNoteStorageKey() {
+            if (!currentUser) return null;
+            const monthKey = getCurrentMonthKey();
+            if (currentUser.role === 'admin' && viewingUser === 'all') {
+                return `${currentUser.username}_all_monthNote_${monthKey}`;
+            }
+            const prefix = currentUser.role === 'admin' && viewingUser ? viewingUser + '_' : currentUser.username + '_';
+            return `${prefix}monthNote_${monthKey}`;
+        }
+
+        async function loadMonthNote() {
+            const el = document.getElementById('monthNoteInput');
+            if (!el) return;
+            const key = getMonthNoteStorageKey();
+            if (!key) return;
+            const val = await getAppItem(key);
+            el.value = typeof val === 'string' ? val : '';
+        }
+
+        function onMonthNoteInput() {
+            if (monthNoteSaveTimer) clearTimeout(monthNoteSaveTimer);
+            monthNoteSaveTimer = setTimeout(() => {
+                saveMonthNote();
+            }, 600);
+        }
+
+        async function saveMonthNote() {
+            const el = document.getElementById('monthNoteInput');
+            if (!el) return;
+            const key = getMonthNoteStorageKey();
+            if (!key) return;
+            await setAppItem(key, String(el.value || ''));
+            showToast('✅ บันทึก Note แล้ว');
         }
 
         // Branch Functions
@@ -4638,6 +4710,13 @@
                 return;
             }
 
+            if (t === 'triple') {
+                playToneAt(ctx, now, 880, 0.14, 0.14);
+                playToneAt(ctx, now + 0.18, 880, 0.14, 0.14);
+                playToneAt(ctx, now + 0.36, 880, 0.14, 0.14);
+                return;
+            }
+
             if (t === 'chime') {
                 playToneAt(ctx, now, 784, 0.12, 0.12);
                 playToneAt(ctx, now + 0.10, 988, 0.14, 0.12);
@@ -4653,6 +4732,19 @@
             if (t === 'ding') {
                 playToneAt(ctx, now, 988, 0.35, 0.12, 'triangle');
                 playToneAt(ctx, now, 1976, 0.22, 0.04, 'triangle');
+                return;
+            }
+
+            if (t === 'bell') {
+                playToneAt(ctx, now, 659, 0.40, 0.10, 'triangle');
+                playToneAt(ctx, now + 0.02, 1319, 0.22, 0.04, 'triangle');
+                return;
+            }
+
+            if (t === 'alarm') {
+                playToneAt(ctx, now, 440, 0.18, 0.14, 'square');
+                playToneAt(ctx, now + 0.22, 660, 0.18, 0.14, 'square');
+                playToneAt(ctx, now + 0.44, 440, 0.18, 0.14, 'square');
                 return;
             }
 
