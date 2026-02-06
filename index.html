@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <meta name="theme-color" content="#6366f1">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="style.css?v=20260206-03">
+    <link rel="stylesheet" href="style.css?v=20260206-04">
 </head>
 <body>
     <!-- Sidebar Navigation -->
@@ -1267,7 +1267,7 @@
                 </div>
             </div>
 
-            <div class="edit-form-group">
+            <div class="edit-form-group" id="addTodoDateGroup">
                 <label class="edit-form-label">วันที่</label>
                 <input type="date" id="addTodoDate" class="edit-form-input">
             </div>
@@ -1383,12 +1383,9 @@
                         </div>
                     </div>
 
-                    <div class="recurring-field" style="grid-column: 1 / -1;">
+                    <div class="recurring-field" style="grid-column: 1 / -1;" id="addTodoRecurringStartGroup">
                         <label>เริ่มต้นจาก</label>
-                        <div style="padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-main); color: var(--text-secondary);">
-                            ใช้วันที่ที่เลือกในช่อง “วันที่” ด้านบน
-                        </div>
-                        <input type="date" id="addTodoRecurringStartDate" style="display: none;">
+                        <input type="date" id="addTodoRecurringStartDate">
                     </div>
 
                     <div class="recurring-field">
@@ -1483,7 +1480,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
-    <script src="firebase-config.js?v=20260206-03"></script>
-    <script src="script.js?v=20260206-03"></script>
+    <script src="firebase-config.js?v=20260206-04"></script>
+    <script src="script.js?v=20260206-04"></script>
 </body>
 </html>

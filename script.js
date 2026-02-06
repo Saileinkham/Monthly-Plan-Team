@@ -2361,6 +2361,8 @@
                 recurringCheckbox.checked = false;
                 recurringOptions.classList.remove('show');
             }
+            const dueDateGroup = document.getElementById('addTodoDateGroup');
+            if (dueDateGroup) dueDateGroup.style.display = '';
 
             addTodoSelectedWeekdays = [];
             document.querySelectorAll('.add-weekday-btn').forEach(btn => btn.classList.remove('selected'));
@@ -2482,12 +2484,17 @@
             checkbox.checked = !checkbox.checked;
             if (checkbox.checked) {
                 options.classList.add('show');
+                const dueDateGroup = document.getElementById('addTodoDateGroup');
+                if (dueDateGroup) dueDateGroup.style.display = 'none';
+
                 const dueDate = document.getElementById('addTodoDate');
                 const startEl = document.getElementById('addTodoRecurringStartDate');
-                if (startEl && dueDate && dueDate.value) startEl.value = dueDate.value;
+                if (startEl && dueDate && dueDate.value && !startEl.value) startEl.value = dueDate.value;
                 updateAddTodoRecurringConfig();
             } else {
                 options.classList.remove('show');
+                const dueDateGroup = document.getElementById('addTodoDateGroup');
+                if (dueDateGroup) dueDateGroup.style.display = '';
             }
         }
 
@@ -2516,8 +2523,8 @@
                 intervalField.style.display = 'block';
                 if (monthlyDayField) {
                     monthlyDayField.style.display = 'block';
-                    const dueDateEl = document.getElementById('addTodoDate');
-                    const startDate = parseDateKeyLocal(dueDateEl ? dueDateEl.value : '');
+                    const startEl = document.getElementById('addTodoRecurringStartDate');
+                    const startDate = parseDateKeyLocal(startEl ? startEl.value : '');
                     const day = startDate ? String(startDate.getDate()) : '1';
                     const daySelect = document.getElementById('addTodoRecurringMonthlyDay');
                     if (daySelect) daySelect.value = day;
@@ -2692,9 +2699,10 @@
                 const typeEl = document.getElementById('addTodoRecurringType');
                 const intervalEl = document.getElementById('addTodoRecurringInterval');
                 const endEl = document.getElementById('addTodoRecurringEndDate');
+                const startEl = document.getElementById('addTodoRecurringStartDate');
                 const type = typeEl ? typeEl.value : 'daily';
                 const interval = intervalEl ? (parseInt(intervalEl.value) || 1) : 1;
-                const startDateStr = dueDate || getTodayDateString();
+                const startDateStr = (startEl && startEl.value ? startEl.value : '') || dueDate || getTodayDateString();
                 const endDateStrRaw = endEl ? endEl.value : '';
 
                 if ((type === 'weekly' || type === 'custom') && (!Array.isArray(addTodoSelectedWeekdays) || addTodoSelectedWeekdays.length === 0)) {
