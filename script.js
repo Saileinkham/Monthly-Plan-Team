@@ -4457,11 +4457,11 @@
             }
         }
 
-        function playToneAt(ctx, startTime, frequency, duration, peakGain) {
+        function playToneAt(ctx, startTime, frequency, duration, peakGain, waveType) {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
 
-            osc.type = 'sine';
+            osc.type = waveType || 'sine';
             osc.frequency.setValueAtTime(frequency, startTime);
             gain.gain.setValueAtTime(0.0001, startTime);
             gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peakGain), startTime + 0.01);
@@ -4494,6 +4494,12 @@
 
             if (t === 'soft') {
                 playToneAt(ctx, now, 660, 0.22, 0.08);
+                return;
+            }
+
+            if (t === 'ding') {
+                playToneAt(ctx, now, 988, 0.35, 0.12, 'triangle');
+                playToneAt(ctx, now, 1976, 0.22, 0.04, 'triangle');
                 return;
             }
 
