@@ -248,6 +248,66 @@ exports.pushDailySummary = functions.pubsub.schedule('0 8 * * *').timeZone('Asia
   return { ok: true, resultsCount: results.length };
 });
 
+exports.discordDueSoon = functions.pubsub.schedule('every 1 minutes').timeZone('Asia/Bangkok').onRun(async () => {
+  const webhookUrl = await readKeyValueDoc('discordWebhookUrl');
+  if (!webhookUrl || typeof webhookUrl !== 'string' || !webhookUrl.startsWith('http')) return { ok: false, reason: 'no_webhook' };
+
+  const minutesBefore = Math.max(0, Number(await readKeyValueDoc('discordNotifyMinutesBefore')) || 0);
+  if (minutesBefore === 0) return { ok: false, reason: 'disabled' };
+
+  const nowParts = getZonedNowParts('Asia/Bangkok');
+  const todayKey = toDateKeyFromParts(nowParts);
+  const nowMin = nowParts.hour * 60 + nowParts.minute;
+
+  const usersValue = await readKeyValueDoc('users');
+  const users = Array.isArray(usersValue) ? usersValue : [];
+  const https = require('https');
+
+  const results = [];
+  for (const u of users) {
+    const username = u && u.username ? String(u.username) : '';
+    if (!username || u.role === 'admin') continue;
+    const todos = await readTodos(`${username}_todos`);
+    const dueToday = todos.filter((t) => t && !t.completed && t.dueDate === todayKey && t.timeStart);
+    for (const t of dueToday) {
+      const startMin = parseTimeToMinutes(String(t.timeStart).slice(0, 5));
+      if (startMin === null) continue;
+      const triggerMin = startMin - minutesBefore;
+      if (triggerMin < 0) continue;
+      const diff = triggerMin - nowMin;
+      if (diff < 0 || diff > 2) continue;
+      const logId = makeLogId(['discordDueSoon', username, String(t.id || ''), todayKey, String(t.timeStart).slice(0, 5), String(minutesBefore)]);
+      if (await hasLog(logId)) continue;
+
+      const displayName = u.displayName || username;
+      const body = JSON.stringify({
+        embeds: [{
+          title: '⏰ ใกล้ถึงเวลางานแล้ว',
+          color: 0xf39c12,
+          fields: [
+            { name: '📝 งาน', value: t.text || '-', inline: false },
+            { name: '👤 ผู้รับผิดชอบ', value: displayName, inline: true },
+            { name: '🕐 เวลา', value: String(t.timeStart).slice(0, 5), inline: true },
+            { name: '🔔 แจ้งล่วงหน้า', value: `${minutesBefore} นาที`, inline: true }
+          ],
+          timestamp: new Date().toISOString()
+        }]
+      });
+
+      const url = new URL(webhookUrl);
+      await new Promise((resolve, reject) => {
+        const req = https.request({ hostname: url.hostname, path: url.pathname + url.search, method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } }, (res) => { res.resume(); resolve(res.statusCode); });
+        req.on('error', reject);
+        req.write(body);
+        req.end();
+      });
+      await writeLog(logId, { type: 'discordDueSoon', username, taskId: String(t.id || '') });
+      results.push({ username, id: t.id });
+    }
+  }
+  return { ok: true, resultsCount: results.length };
+});
+
 exports.discordDailySummary = functions.pubsub.schedule('every 1 minutes').timeZone('Asia/Bangkok').onRun(async () => {
   const webhookUrl = await readKeyValueDoc('discordWebhookUrl');
   if (!webhookUrl || typeof webhookUrl !== 'string' || !webhookUrl.startsWith('http')) return { ok: false, reason: 'no_webhook' };
