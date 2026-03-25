@@ -467,7 +467,12 @@
                 
                 dayOffs = Array.isArray(dayOffs) ? dayOffs.map(getDayOffDateValue).filter(Boolean) : [];
                 leaveDays = Array.isArray(leaveDays) ? leaveDays.filter(l => l && typeof l.date === 'string' && typeof l.type === 'string') : [];
-                
+
+                // Admin personal view: only show tasks assigned to admin, not tasks meant for other users
+                if (currentUser.role === 'admin' && !viewingUser) {
+                    todos = todos.filter(t => !t.assignedTo || t.assignedTo === currentUser.username);
+                }
+
                 const dataOwner = currentUser.role === 'admin' && viewingUser ? viewingUser : currentUser.username;
                 todos.forEach(t => {
                     t.createdBy = t.createdBy || dataOwner || '';
@@ -3375,7 +3380,7 @@
                 <div class="todo-content">
                     <div class="todo-text">
                         ${todo.owner ? `<span style="background: #e2e8f0; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin-right: 6px;">👤 ${getUserDisplayName(todo.owner)}</span>` : ''}
-                        ${todo.createdBy && (!todo.owner || todo.createdBy !== todo.owner) ? `<span style="background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin-right: 6px;">✍️ ${getUserDisplayName(todo.createdBy)}</span>` : ''}
+                        ${isAllView && todo.createdBy && todo.createdBy !== todo.owner ? `<span style="background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin-right: 6px;">✍️ ${getUserDisplayName(todo.createdBy)}</span>` : ''}
                         ${todo.icon ? todo.icon + ' ' : ''}${todo.text}
                     </div>
                     <div class="todo-meta">
