@@ -110,6 +110,8 @@
         let appLogo = localStorage.getItem('appLogo') || '';
         let headerImage = localStorage.getItem('headerImage') || '';
         let discordWebhookUrl = '';
+        let discordSummaryTime = '08:00';
+        let discordSummaryEnabled = false;
 
         // Admin View State
         let viewingUser = null; // null = self, or specific username
@@ -446,6 +448,8 @@
                 customBranches = (await getItem(adminPrefix + 'customBranches')) || [];
                 customCategories = (await getItem(adminPrefix + 'customCategories')) || [];
                 discordWebhookUrl = (await getItem('discordWebhookUrl')) || '';
+                discordSummaryTime = (await getItem('discordSummaryTime')) || '08:00';
+                discordSummaryEnabled = !!(await getItem('discordSummaryEnabled'));
 
             } else {
                 const prefix = currentUser.role === 'admin' && viewingUser ? viewingUser + '_' : currentUser.username + '_';
@@ -457,6 +461,8 @@
                 branchVisits = (await getItem(prefix + 'branchVisits')) || [];
                 if (currentUser.role === 'admin') {
                     discordWebhookUrl = (await getItem('discordWebhookUrl')) || '';
+                    discordSummaryTime = (await getItem('discordSummaryTime')) || '08:00';
+                    discordSummaryEnabled = !!(await getItem('discordSummaryEnabled'));
                 }
                 
                 dayOffs = Array.isArray(dayOffs) ? dayOffs.map(getDayOffDateValue).filter(Boolean) : [];
@@ -1749,6 +1755,10 @@
                 updateAdminViewSelector();
                 const discordInput = document.getElementById('settingsDiscordWebhookInput');
                 if (discordInput) discordInput.value = discordWebhookUrl || '';
+                const discordTimeInput = document.getElementById('settingsDiscordSummaryTime');
+                if (discordTimeInput) discordTimeInput.value = discordSummaryTime || '08:00';
+                const discordEnabledInput = document.getElementById('settingsDiscordSummaryEnabled');
+                if (discordEnabledInput) discordEnabledInput.checked = !!discordSummaryEnabled;
             }
 
             // Close sidebar on mobile
@@ -4471,13 +4481,21 @@
             } catch (e) {}
         }
 
-        async function saveDiscordWebhookUrl() {
-            const input = document.getElementById('settingsDiscordWebhookInput');
-            if (!input) return;
-            discordWebhookUrl = input.value.trim();
+        async function saveDiscordSettings() {
+            const urlInput = document.getElementById('settingsDiscordWebhookInput');
+            const timeInput = document.getElementById('settingsDiscordSummaryTime');
+            const enabledInput = document.getElementById('settingsDiscordSummaryEnabled');
+            discordWebhookUrl = urlInput ? urlInput.value.trim() : discordWebhookUrl;
+            discordSummaryTime = timeInput ? timeInput.value || '08:00' : discordSummaryTime;
+            discordSummaryEnabled = enabledInput ? enabledInput.checked : discordSummaryEnabled;
             await setAppItem('discordWebhookUrl', discordWebhookUrl);
-            showToast('✅ บันทึก Discord Webhook แล้ว');
+            await setAppItem('discordSummaryTime', discordSummaryTime);
+            await setAppItem('discordSummaryEnabled', discordSummaryEnabled);
+            showToast('✅ บันทึกการตั้งค่า Discord แล้ว');
         }
+
+        // Keep old name as alias for compatibility
+        async function saveDiscordWebhookUrl() { await saveDiscordSettings(); }
 
         // Notifications
         function updateNotifications() {

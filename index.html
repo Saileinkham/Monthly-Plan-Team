@@ -1112,12 +1112,21 @@
                 <h3 style="color: #1e293b; font-size: 1.2rem; margin-bottom: 5px; display: flex; align-items: center; gap: 8px;">
                     🎮 Discord Webhook
                 </h3>
-                <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 15px;">แจ้งเตือนงานใหม่เข้า Discord อัตโนมัติเมื่อมีการมอบหมายงาน</p>
-                <div style="display: flex; gap: 10px;">
+                <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 15px;">แจ้งเตือนงานใหม่เข้า Discord อัตโนมัติเมื่อมีการมอบหมายงาน และส่งสรุปงานประจำวันตามเวลาที่กำหนด</p>
+                <div style="display: flex; gap: 10px; margin-bottom: 12px;">
                     <input type="url" id="settingsDiscordWebhookInput" placeholder="https://discord.com/api/webhooks/..." style="flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; background: #f8fafc;">
-                    <button onclick="saveDiscordWebhookUrl()" style="background: linear-gradient(135deg, #5865F2, #7289da); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 500; cursor: pointer; white-space: nowrap;">
+                    <button onclick="saveDiscordSettings()" style="background: linear-gradient(135deg, #5865F2, #7289da); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 500; cursor: pointer; white-space: nowrap;">
                         บันทึก
                     </button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <label style="color: #475569; font-size: 0.9rem; white-space: nowrap;">⏰ สรุปงานประจำวัน:</label>
+                    <input type="time" id="settingsDiscordSummaryTime" value="08:00" style="padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; background: #f8fafc; color: #334155;">
+                    <span style="color: #94a3b8; font-size: 0.8rem;">(ปิดไว้ถ้าไม่ต้องการ)</span>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input type="checkbox" id="settingsDiscordSummaryEnabled" style="width: 16px; height: 16px; cursor: pointer;">
+                        <span style="color: #475569; font-size: 0.9rem;">เปิดใช้</span>
+                    </label>
                 </div>
             </div>
 
