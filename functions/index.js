@@ -247,3 +247,76 @@ exports.pushDailySummary = functions.pubsub.schedule('0 8 * * *').timeZone('Asia
   }
   return { ok: true, resultsCount: results.length };
 });
+
+exports.discordDailySummary = functions.pubsub.schedule('every 1 minutes').timeZone('Asia/Bangkok').onRun(async () => {
+  const webhookUrl = await readKeyValueDoc('discordWebhookUrl');
+  if (!webhookUrl || typeof webhookUrl !== 'string' || !webhookUrl.startsWith('http')) return { ok: false, reason: 'no_webhook' };
+
+  const summaryEnabled = await readKeyValueDoc('discordSummaryEnabled');
+  if (!summaryEnabled) return { ok: false, reason: 'disabled' };
+
+  const summaryTime = await readKeyValueDoc('discordSummaryTime');
+  if (!summaryTime || typeof summaryTime !== 'string') return { ok: false, reason: 'no_time' };
+
+  const nowParts = getZonedNowParts('Asia/Bangkok');
+  const nowHHMM = `${String(nowParts.hour).padStart(2, '0')}:${String(nowParts.minute).padStart(2, '0')}`;
+  if (nowHHMM !== summaryTime.slice(0, 5)) return { ok: false, reason: 'not_time_yet' };
+
+  const todayKey = toDateKeyFromParts(nowParts);
+  const logId = makeLogId(['discordSummary', todayKey, nowHHMM]);
+  if (await hasLog(logId)) return { ok: false, reason: 'already_sent' };
+
+  const usersValue = await readKeyValueDoc('users');
+  const users = Array.isArray(usersValue) ? usersValue : [];
+
+  const summaryLines = [];
+  for (const u of users) {
+    const username = u && u.username ? String(u.username) : '';
+    if (!username || u.role === 'admin') continue;
+    const todos = await readTodos(`${username}_todos`);
+    const dueToday = todos.filter((t) => t && !t.completed && t.dueDate === todayKey);
+    if (dueToday.length === 0) continue;
+    const displayName = u.displayName || username;
+    summaryLines.push({ name: displayName, tasks: dueToday });
+  }
+
+  if (summaryLines.length === 0) {
+    await writeLog(logId, { type: 'discordSummary', note: 'no_tasks' });
+    return { ok: true, reason: 'no_tasks' };
+  }
+
+  const fields = summaryLines.map(s => ({
+    name: `👤 ${s.name} — ${s.tasks.length} งาน`,
+    value: s.tasks.slice(0, 5).map(t => `• ${t.text || '-'}${t.timeStart ? ` ⏰${t.timeStart}` : ''}`).join('\n') + (s.tasks.length > 5 ? `\n...และอีก ${s.tasks.length - 5} งาน` : ''),
+    inline: false
+  }));
+
+  const payload = {
+    embeds: [{
+      title: `📋 สรุปงานประจำวัน — ${todayKey}`,
+      description: `รวม ${summaryLines.reduce((n, s) => n + s.tasks.length, 0)} งานที่ต้องทำวันนี้`,
+      color: 0x5865F2,
+      fields,
+      timestamp: new Date().toISOString()
+    }]
+  };
+
+  const https = require('https');
+  const url = new URL(webhookUrl);
+  const body = JSON.stringify(payload);
+
+  await new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: url.hostname,
+      path: url.pathname + url.search,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+    }, (res) => { res.resume(); resolve(res.statusCode); });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+
+  await writeLog(logId, { type: 'discordSummary', todayKey, users: summaryLines.map(s => s.name) });
+  return { ok: true, sent: true };
+});
