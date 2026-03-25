@@ -402,8 +402,9 @@
                 branchVisits = [];
                 dayOffs = [];
                 leaveDays = [];
-                // Aggregate data from all users
+                // Aggregate data from non-admin users only
                 for (const u of users) {
+                    if (u.role === 'admin') continue;
                     const userTodos = (await getItem(u.username + '_todos')) || [];
                     const userVisits = (await getItem(u.username + '_branchVisits')) || [];
                     const userDayOffs = (await getItem(u.username + '_dayOffs')) || [];
