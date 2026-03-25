@@ -109,7 +109,8 @@
         let appName = localStorage.getItem('appName') || 'Monthly Plan';
         let appLogo = localStorage.getItem('appLogo') || '';
         let headerImage = localStorage.getItem('headerImage') || '';
-        
+        let discordWebhookUrl = '';
+
         // Admin View State
         let viewingUser = null; // null = self, or specific username
 
@@ -443,7 +444,8 @@
                 const adminPrefix = currentUser.username + '_';
                 customBranches = (await getItem(adminPrefix + 'customBranches')) || [];
                 customCategories = (await getItem(adminPrefix + 'customCategories')) || [];
-                
+                discordWebhookUrl = (await getItem('discordWebhookUrl')) || '';
+
             } else {
                 const prefix = currentUser.role === 'admin' && viewingUser ? viewingUser + '_' : currentUser.username + '_';
                 todos = (await getItem(prefix + 'todos')) || [];
@@ -452,6 +454,9 @@
                 customBranches = (await getItem(prefix + 'customBranches')) || [];
                 customCategories = (await getItem(prefix + 'customCategories')) || [];
                 branchVisits = (await getItem(prefix + 'branchVisits')) || [];
+                if (currentUser.role === 'admin') {
+                    discordWebhookUrl = (await getItem('discordWebhookUrl')) || '';
+                }
                 
                 dayOffs = Array.isArray(dayOffs) ? dayOffs.map(getDayOffDateValue).filter(Boolean) : [];
                 leaveDays = Array.isArray(leaveDays) ? leaveDays.filter(l => l && typeof l.date === 'string' && typeof l.type === 'string') : [];
@@ -1741,8 +1746,10 @@
             
             if (currentUser && currentUser.role === 'admin') {
                 updateAdminViewSelector();
+                const discordInput = document.getElementById('settingsDiscordWebhookInput');
+                if (discordInput) discordInput.value = discordWebhookUrl || '';
             }
-            
+
             // Close sidebar on mobile
             if (window.innerWidth <= 1024) {
                 toggleSidebar();
@@ -2947,6 +2954,13 @@
             closeAddTodoModal();
             const names = targetUsernames.map(u => getUserDisplayName(u)).join(', ');
             showToast(`✅ เพิ่มงานให้ ${names}`);
+            const discordAssignees = targetUsernames.filter(u => {
+                const u_ = users.find(x => x.username === u);
+                return u_ && u_.role !== 'admin';
+            });
+            if (discordAssignees.length > 0) {
+                sendDiscordNotification(text, discordAssignees, dueDate, timeStart, priority, createdBy);
+            }
         }
 
         function toggleAddTodoNotify() {
@@ -3316,7 +3330,7 @@
                 study: '📚'
             };
 
-            const isOverdue = todo.dueDate && new Date(todo.dueDate) < new Date() && !todo.completed;
+            const isOverdue = todo.dueDate && todo.dueDate < toDateKey(new Date()) && !todo.completed;
             const timeDisplay = todo.timeStart && todo.timeEnd ? 
                 `⏰ ${todo.timeStart}-${todo.timeEnd}` : 
                 (todo.timeStart ? `⏰ ${todo.timeStart}` : '');
@@ -4422,6 +4436,46 @@
         function todayMonth() {
             currentCalendarDate = new Date();
             renderCalendar();
+        }
+
+        // Discord Webhook
+        async function sendDiscordNotification(taskText, assignees, dueDate, timeStart, priority, createdBy) {
+            if (!discordWebhookUrl) return;
+            try {
+                const priorityLabel = { high: '🔴 สูง', medium: '🟡 กลาง', low: '🟢 ต่ำ' }[priority] || priority || '-';
+                const assigneeNames = (Array.isArray(assignees) ? assignees : [assignees])
+                    .filter(Boolean)
+                    .map(u => getUserDisplayName(u))
+                    .join(', ');
+                const dateDisplay = dueDate ? formatDate(dueDate) : '-';
+                const timeDisplay = timeStart ? ` ⏰ ${timeStart}` : '';
+                const creatorDisplay = createdBy ? getUserDisplayName(createdBy) : '-';
+                const embed = {
+                    title: '📋 มีงานใหม่ถูกมอบหมาย',
+                    color: priority === 'high' ? 0xe74c3c : priority === 'low' ? 0x2ecc71 : 0xf39c12,
+                    fields: [
+                        { name: '📝 งาน', value: taskText || '-', inline: false },
+                        { name: '👤 มอบหมายให้', value: assigneeNames || '-', inline: true },
+                        { name: '🚩 ความสำคัญ', value: priorityLabel, inline: true },
+                        { name: '📅 วันที่', value: dateDisplay + timeDisplay, inline: true },
+                        { name: '✍️ โดย', value: creatorDisplay, inline: true }
+                    ],
+                    timestamp: new Date().toISOString()
+                };
+                await fetch(discordWebhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ embeds: [embed] })
+                });
+            } catch (e) {}
+        }
+
+        async function saveDiscordWebhookUrl() {
+            const input = document.getElementById('settingsDiscordWebhookInput');
+            if (!input) return;
+            discordWebhookUrl = input.value.trim();
+            await setAppItem('discordWebhookUrl', discordWebhookUrl);
+            showToast('✅ บันทึก Discord Webhook แล้ว');
         }
 
         // Notifications
@@ -6097,6 +6151,12 @@
             const settingsUserSection = document.getElementById('settingsUserSection');
             if (settingsUserSection) {
                 settingsUserSection.style.display = currentUser.role === 'admin' ? 'block' : 'none';
+            }
+
+            // Discord section (Admin Only)
+            const settingsDiscordSection = document.getElementById('settingsDiscordSection');
+            if (settingsDiscordSection) {
+                settingsDiscordSection.style.display = currentUser.role === 'admin' ? 'block' : 'none';
             }
             
             // 3. Export Buttons
