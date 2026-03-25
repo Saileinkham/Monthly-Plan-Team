@@ -112,6 +112,7 @@
         let discordWebhookUrl = '';
         let discordSummaryTime = '08:00';
         let discordSummaryEnabled = false;
+        let discordNotifyMinutesBefore = 0;
 
         // Admin View State
         let viewingUser = null; // null = self, or specific username
@@ -450,6 +451,7 @@
                 discordWebhookUrl = (await getItem('discordWebhookUrl')) || '';
                 discordSummaryTime = (await getItem('discordSummaryTime')) || '08:00';
                 discordSummaryEnabled = !!(await getItem('discordSummaryEnabled'));
+                discordNotifyMinutesBefore = Number(await getItem('discordNotifyMinutesBefore')) || 0;
 
             } else {
                 const prefix = currentUser.role === 'admin' && viewingUser ? viewingUser + '_' : currentUser.username + '_';
@@ -463,14 +465,21 @@
                     discordWebhookUrl = (await getItem('discordWebhookUrl')) || '';
                     discordSummaryTime = (await getItem('discordSummaryTime')) || '08:00';
                     discordSummaryEnabled = !!(await getItem('discordSummaryEnabled'));
+                    discordNotifyMinutesBefore = Number(await getItem('discordNotifyMinutesBefore')) || 0;
                 }
                 
                 dayOffs = Array.isArray(dayOffs) ? dayOffs.map(getDayOffDateValue).filter(Boolean) : [];
                 leaveDays = Array.isArray(leaveDays) ? leaveDays.filter(l => l && typeof l.date === 'string' && typeof l.type === 'string') : [];
 
+                // Clear stale owner field (only used in all-view)
+                todos.forEach(t => { delete t.owner; });
+
                 // Admin personal view: only show tasks assigned to admin, not tasks meant for other users
                 if (currentUser.role === 'admin' && !viewingUser) {
-                    todos = todos.filter(t => !t.assignedTo || t.assignedTo === currentUser.username);
+                    todos = todos.filter(t => {
+                        if (!t.assignedTo) return true; // old tasks without assignedTo — keep
+                        return t.assignedTo === currentUser.username;
+                    });
                 }
 
                 const dataOwner = currentUser.role === 'admin' && viewingUser ? viewingUser : currentUser.username;
@@ -1764,6 +1773,8 @@
                 if (discordTimeInput) discordTimeInput.value = discordSummaryTime || '08:00';
                 const discordEnabledInput = document.getElementById('settingsDiscordSummaryEnabled');
                 if (discordEnabledInput) discordEnabledInput.checked = !!discordSummaryEnabled;
+                const discordMinutesInput = document.getElementById('settingsDiscordNotifyMinutes');
+                if (discordMinutesInput) discordMinutesInput.value = discordNotifyMinutesBefore || 0;
             }
 
             // Close sidebar on mobile
@@ -2412,6 +2423,10 @@
                 todo.completed = !todo.completed;
                 saveTodos();
                 refreshAllViews();
+                if (todo.completed && discordWebhookUrl) {
+                    const owner = todo.assignedTo || (currentUser ? currentUser.username : '');
+                    sendDiscordCompletionNotification(todo, owner);
+                }
             }
         }
 
@@ -3258,9 +3273,20 @@
             const sections = document.getElementById('todoSections');
             sections.innerHTML = '';
 
-            // Active Todos Section
+            // Split active into ตารางงาน (has branches) and งาน (no branches)
+            const activeSchedule = active.filter(t => t.branches && t.branches.length > 0);
+            const activeTask = active.filter(t => !t.branches || t.branches.length === 0);
+
             if (active.length > 0 || currentFilter === 'all' || currentFilter === 'active') {
-                sections.appendChild(createSection('งานที่ต้องทำ', active, '⏳'));
+                if (activeSchedule.length > 0) {
+                    sections.appendChild(createSection('ตารางงาน', activeSchedule, '🏢'));
+                }
+                if (activeTask.length > 0) {
+                    sections.appendChild(createSection('งานที่ต้องทำ', activeTask, '⏳'));
+                }
+                if (active.length === 0) {
+                    sections.appendChild(createSection('งานที่ต้องทำ', [], '⏳'));
+                }
             }
 
             // Completed Todos Section
@@ -4486,16 +4512,43 @@
             } catch (e) {}
         }
 
+        async function sendDiscordCompletionNotification(todo, ownerUsername) {
+            if (!discordWebhookUrl) return;
+            try {
+                const ownerName = getUserDisplayName(ownerUsername);
+                const dateDisplay = todo.dueDate ? formatDate(todo.dueDate) : '';
+                const timeDisplay = todo.timeStart ? ` ⏰ ${todo.timeStart}` : '';
+                const embed = {
+                    title: '✅ งานเสร็จแล้ว',
+                    color: 0x2ecc71,
+                    fields: [
+                        { name: '📝 งาน', value: todo.text || '-', inline: false },
+                        { name: '👤 ผู้รับผิดชอบ', value: ownerName, inline: true },
+                        { name: '📅 วันที่', value: (dateDisplay + timeDisplay) || '-', inline: true }
+                    ],
+                    timestamp: new Date().toISOString()
+                };
+                await fetch(discordWebhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ embeds: [embed] })
+                });
+            } catch (e) {}
+        }
+
         async function saveDiscordSettings() {
             const urlInput = document.getElementById('settingsDiscordWebhookInput');
             const timeInput = document.getElementById('settingsDiscordSummaryTime');
             const enabledInput = document.getElementById('settingsDiscordSummaryEnabled');
+            const minutesInput = document.getElementById('settingsDiscordNotifyMinutes');
             discordWebhookUrl = urlInput ? urlInput.value.trim() : discordWebhookUrl;
             discordSummaryTime = timeInput ? timeInput.value || '08:00' : discordSummaryTime;
             discordSummaryEnabled = enabledInput ? enabledInput.checked : discordSummaryEnabled;
+            discordNotifyMinutesBefore = minutesInput ? Math.max(0, parseInt(minutesInput.value) || 0) : discordNotifyMinutesBefore;
             await setAppItem('discordWebhookUrl', discordWebhookUrl);
             await setAppItem('discordSummaryTime', discordSummaryTime);
             await setAppItem('discordSummaryEnabled', discordSummaryEnabled);
+            await setAppItem('discordNotifyMinutesBefore', discordNotifyMinutesBefore);
             showToast('✅ บันทึกการตั้งค่า Discord แล้ว');
         }
 

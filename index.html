@@ -1119,14 +1119,18 @@
                         บันทึก
                     </button>
                 </div>
-                <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                     <label style="color: #475569; font-size: 0.9rem; white-space: nowrap;">⏰ สรุปงานประจำวัน:</label>
                     <input type="time" id="settingsDiscordSummaryTime" value="08:00" style="padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; background: #f8fafc; color: #334155;">
-                    <span style="color: #94a3b8; font-size: 0.8rem;">(ปิดไว้ถ้าไม่ต้องการ)</span>
                     <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
                         <input type="checkbox" id="settingsDiscordSummaryEnabled" style="width: 16px; height: 16px; cursor: pointer;">
                         <span style="color: #475569; font-size: 0.9rem;">เปิดใช้</span>
                     </label>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; margin-top: 10px;">
+                    <label style="color: #475569; font-size: 0.9rem; white-space: nowrap;">🔔 แจ้งล่วงหน้า:</label>
+                    <input type="number" id="settingsDiscordNotifyMinutes" min="0" max="1440" value="0" style="width: 80px; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; background: #f8fafc; color: #334155;">
+                    <span style="color: #64748b; font-size: 0.9rem;">นาทีก่อนถึงเวลางาน (0 = ปิด)</span>
                 </div>
             </div>
 
