@@ -1107,6 +1107,20 @@
                 </div>
             </div>
 
+            <!-- Discord Webhook Card (Admin Only) -->
+            <div id="settingsDiscordSection" style="display: none; background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                <h3 style="color: #1e293b; font-size: 1.2rem; margin-bottom: 5px; display: flex; align-items: center; gap: 8px;">
+                    🎮 Discord Webhook
+                </h3>
+                <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 15px;">แจ้งเตือนงานใหม่เข้า Discord อัตโนมัติเมื่อมีการมอบหมายงาน</p>
+                <div style="display: flex; gap: 10px;">
+                    <input type="url" id="settingsDiscordWebhookInput" placeholder="https://discord.com/api/webhooks/..." style="flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; background: #f8fafc;">
+                    <button onclick="saveDiscordWebhookUrl()" style="background: linear-gradient(135deg, #5865F2, #7289da); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 500; cursor: pointer; white-space: nowrap;">
+                        บันทึก
+                    </button>
+                </div>
+            </div>
+
             <!-- Branch Management Card -->
             <div class="settings-section" id="settingsBranchSection" style="background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0;">
                 <h3 style="color: #1e293b; font-size: 1.2rem; margin-bottom: 5px; display: flex; align-items: center; gap: 8px;">
@@ -1140,20 +1154,6 @@
                 </div>
                 <div class="custom-category-list" id="settingsCategoryList" style="margin-top: 15px;"></div>
              </div>
-
-            <!-- Discord Webhook Card (Admin Only) -->
-            <div id="settingsDiscordSection" style="display: none; background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; margin-top: 20px;">
-                <h3 style="color: #1e293b; font-size: 1.2rem; margin-bottom: 5px; display: flex; align-items: center; gap: 8px;">
-                    🎮 Discord Webhook
-                </h3>
-                <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 15px;">แจ้งเตือนงานใหม่เข้า Discord อัตโนมัติเมื่อมีการมอบหมายงาน</p>
-                <div style="display: flex; gap: 10px;">
-                    <input type="url" id="settingsDiscordWebhookInput" placeholder="https://discord.com/api/webhooks/..." style="flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; background: #f8fafc;">
-                    <button onclick="saveDiscordWebhookUrl()" style="background: linear-gradient(135deg, #5865F2, #7289da); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 500; cursor: pointer; white-space: nowrap;">
-                        บันทึก
-                    </button>
-                </div>
-            </div>
 
         </div>
     </div>
